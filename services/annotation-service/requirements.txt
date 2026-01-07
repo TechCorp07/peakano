@@ -1,0 +1,10 @@
+# Annotation Service Dependencies
+
+# Install shared dependencies first
+-r ../../requirements.txt
+
+# MongoDB async driver
+motor==3.3.2
+
+# BSON utilities
+pymongo==4.6.1

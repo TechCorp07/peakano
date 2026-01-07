@@ -1,0 +1,8 @@
+# WebSocket Service Dependencies
+
+# Install shared dependencies first
+-r ../../requirements.txt
+
+# WebSocket support (included in FastAPI)
+python-socketio==5.11.0  # Optional: for Socket.IO compatibility
+websockets==15.0.1  # Already included in FastAPI

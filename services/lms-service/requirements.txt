@@ -1,0 +1,6 @@
+# LMS Service Dependencies
+
+# Install shared dependencies first
+-r ../../requirements.txt
+
+# No additional dependencies required

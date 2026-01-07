@@ -1,0 +1,14 @@
+# DICOM Service Dependencies
+
+# Install shared dependencies first
+-r ../../requirements.txt
+
+# DICOM Processing
+pydicom==2.4.4
+SimpleITK==2.4.1
+
+# HTTP client for Orthanc
+httpx==0.26.0
+
+# Image processing
+Pillow==10.2.0

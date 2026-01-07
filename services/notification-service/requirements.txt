@@ -1,0 +1,16 @@
+# Notification Service Dependencies
+
+# Install shared dependencies first
+-r ../../requirements.txt
+
+# Email
+# SMTP is built-in to Python
+
+# Africa's Talking SDK for SMS
+africastalking==1.2.7
+
+# Template engine
+Jinja2==3.1.3
+
+# HTTP client (for SendGrid, FCM)
+httpx==0.26.0

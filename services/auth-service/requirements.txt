@@ -1,0 +1,8 @@
+# Auth Service Specific Dependencies
+
+# Install shared dependencies first
+-r ../../requirements.txt
+
+# Additional auth-specific packages
+python-keycloak==3.9.0
+argon2-cffi==23.1.0

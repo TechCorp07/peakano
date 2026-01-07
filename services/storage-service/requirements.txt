@@ -1,0 +1,13 @@
+# Storage Service Dependencies
+
+# Install shared dependencies first
+-r ../../requirements.txt
+
+# MinIO / S3 Client
+minio==7.2.3
+
+# File type detection
+python-magic==0.4.27
+
+# Image processing (optional, for thumbnails)
+Pillow==10.2.0
