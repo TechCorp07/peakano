@@ -46,6 +46,12 @@ function isPathMatch(pathname: string, paths: string[]): boolean {
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 /**
+ * Check if auth bypass is enabled (for testing without backend)
+ * Set NEXT_PUBLIC_BYPASS_AUTH=true in your .env file to bypass auth
+ */
+const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
+
+/**
  * Middleware for route protection
  *
  * This middleware:
@@ -69,9 +75,10 @@ export function middleware(request: NextRequest) {
         return NextResponse.next();
     }
 
-    // DEVELOPMENT MODE: Bypass all auth checks
+    // DEVELOPMENT MODE or BYPASS AUTH: Skip all auth checks
     // This allows viewing all pages without a backend connection
-    if (isDevelopment) {
+    // Set NEXT_PUBLIC_BYPASS_AUTH=true in environment to enable bypass in production
+    if (isDevelopment || bypassAuth) {
         return NextResponse.next();
     }
 
