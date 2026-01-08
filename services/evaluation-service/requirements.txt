@@ -1,0 +1,5 @@
+# Install shared dependencies first
+-r ../../requirements.txt
+
+# Redis
+hiredis==2.3.2
