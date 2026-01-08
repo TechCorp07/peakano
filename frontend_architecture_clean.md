@@ -756,6 +756,7 @@ const DicomViewerPage = () => {
       annotations={annotations}
       onAnnotationChange={handleAnnotationChange}
     />
+    
   );
 };
 ```

@@ -13,6 +13,9 @@ export const ROUTES = {
   PRIVACY_POLICY: '/privacy-policy',
   TERMS_AND_CONDITIONS: '/terms-and-conditions',
 
+  // OAuth routes
+  OAUTH_GOOGLE_CALLBACK: '/auth/callback/google',
+
   // Protected routes
   DASHBOARD: '/dashboard',
 
@@ -27,6 +30,10 @@ export const ROUTES = {
   ANNOTATION_WORKSPACE: (caseId: string) => `/annotation/workspace/${caseId}` as const,
   ANNOTATION_REVIEW: (sessionId: string) => `/annotation/review/${sessionId}` as const,
 
+  // DICOM Viewer
+  STUDIES: '/studies',
+  VIEWER: (studyId: string) => `/viewer/${studyId}` as const,
+
   // Assessments
   ASSESSMENTS: '/assessments',
   ASSESSMENT_DETAIL: (id: string) => `/assessments/${id}` as const,
@@ -38,10 +45,14 @@ export const ROUTES = {
   // Instructor
   INSTRUCTOR: '/instructor',
   INSTRUCTOR_COURSES: '/instructor/courses',
+  INSTRUCTOR_REVIEW: '/instructor/review',
 
   // Admin
   ADMIN: '/admin',
   ADMIN_USERS: '/admin/users',
+  ADMIN_DICOM: '/admin/dicom',
+  ADMIN_ANALYTICS: '/admin/analytics',
+  ADMIN_SETTINGS: '/admin/settings',
 } as const;
 
 /**
@@ -56,6 +67,7 @@ export const PUBLIC_ROUTES = [
   ROUTES.VERIFY_EMAIL,
   ROUTES.PRIVACY_POLICY,
   ROUTES.TERMS_AND_CONDITIONS,
+  ROUTES.OAUTH_GOOGLE_CALLBACK,
 ] as const;
 
 /**
@@ -63,5 +75,5 @@ export const PUBLIC_ROUTES = [
  */
 export const ROLE_ROUTES = {
   instructor: [ROUTES.INSTRUCTOR, ROUTES.INSTRUCTOR_COURSES],
-  admin: [ROUTES.ADMIN, ROUTES.ADMIN_USERS],
+  admin: [ROUTES.ADMIN, ROUTES.ADMIN_USERS, ROUTES.ADMIN_DICOM],
 } as const;

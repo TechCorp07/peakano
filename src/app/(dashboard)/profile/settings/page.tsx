@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Eye, EyeOff, CheckCircle2, User, Lock, Shield } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, CheckCircle2, Lock, Shield } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,29 +13,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 import { useAuth, usePermissions } from '@/features/auth/hooks';
-import { useUpdateProfileMutation, useChangePasswordMutation, useResendVerificationMutation } from '@/features/auth/authApi';
+import { useChangePasswordMutation, useResendVerificationMutation } from '@/features/auth/authApi';
 import {
-    updateProfileSchema,
     changePasswordSchema,
-    type UpdateProfileFormData,
     type ChangePasswordFormData,
 } from '@/features/auth/schemas';
 import { ROUTES } from '@/config/routes';
 
 /**
  * Profile Settings Page
- * Allows users to update their profile and change password
+ * Allows users to change password and view permissions
  */
 export default function ProfileSettingsPage() {
     const { user } = useAuth();
     const { isAdmin, isInstructor } = usePermissions();
 
-    const [updateProfile, { isLoading: isUpdatingProfile }] = useUpdateProfileMutation();
     const [changePassword, { isLoading: isChangingPassword }] = useChangePasswordMutation();
     const [resendVerification, { isLoading: isResending }] = useResendVerificationMutation();
 
-    const [profileSuccess, setProfileSuccess] = useState(false);
-    const [profileError, setProfileError] = useState<string | null>(null);
     const [passwordSuccess, setPasswordSuccess] = useState(false);
     const [passwordError, setPasswordError] = useState<string | null>(null);
     const [verificationSent, setVerificationSent] = useState(false);
@@ -43,16 +38,6 @@ export default function ProfileSettingsPage() {
     const [showCurrentPassword, setShowCurrentPassword] = useState(false);
     const [showNewPassword, setShowNewPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-    // Profile form
-    const profileMethods = useForm<UpdateProfileFormData>({
-        resolver: zodResolver(updateProfileSchema),
-        defaultValues: {
-            firstName: user?.firstName || '',
-            lastName: user?.lastName || '',
-            avatarUrl: user?.avatarUrl || '',
-        },
-    });
 
     // Password form
     const passwordMethods = useForm<ChangePasswordFormData>({
@@ -63,23 +48,6 @@ export default function ProfileSettingsPage() {
             confirmPassword: '',
         },
     });
-
-    const onProfileSubmit = async (data: UpdateProfileFormData) => {
-        setProfileError(null);
-        setProfileSuccess(false);
-
-        try {
-            await updateProfile({
-                firstName: data.firstName,
-                lastName: data.lastName,
-                avatarUrl: data.avatarUrl || undefined,
-            }).unwrap();
-            setProfileSuccess(true);
-        } catch (err: unknown) {
-            const error = err as { data?: { message?: string } };
-            setProfileError(error.data?.message || 'Failed to update profile');
-        }
-    };
 
     const onPasswordSubmit = async (data: ChangePasswordFormData) => {
         setPasswordError(null);
@@ -141,101 +109,6 @@ export default function ProfileSettingsPage() {
             )}
 
             <div className="grid gap-8 lg:grid-cols-2">
-                {/* Profile Information Card */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <User className="h-5 w-5" />
-                            Profile Information
-                        </CardTitle>
-                        <CardDescription>
-                            Update your personal details
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <FormProvider {...profileMethods}>
-                            <form onSubmit={profileMethods.handleSubmit(onProfileSubmit)} className="space-y-4">
-                                {profileSuccess && (
-                                    <Alert className="border-green-200 bg-green-50">
-                                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                        <AlertDescription className="text-green-700">
-                                            Profile updated successfully!
-                                        </AlertDescription>
-                                    </Alert>
-                                )}
-
-                                {profileError && (
-                                    <Alert variant="destructive">
-                                        <AlertDescription>{profileError}</AlertDescription>
-                                    </Alert>
-                                )}
-
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="firstName">First name</Label>
-                                        <Input
-                                            id="firstName"
-                                            error={!!profileMethods.formState.errors.firstName}
-                                            {...profileMethods.register('firstName')}
-                                        />
-                                        {profileMethods.formState.errors.firstName && (
-                                            <p className="text-sm text-destructive">
-                                                {profileMethods.formState.errors.firstName.message}
-                                            </p>
-                                        )}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="lastName">Last name</Label>
-                                        <Input
-                                            id="lastName"
-                                            error={!!profileMethods.formState.errors.lastName}
-                                            {...profileMethods.register('lastName')}
-                                        />
-                                        {profileMethods.formState.errors.lastName && (
-                                            <p className="text-sm text-destructive">
-                                                {profileMethods.formState.errors.lastName.message}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="email">Email</Label>
-                                    <Input
-                                        id="email"
-                                        type="email"
-                                        value={user?.email || ''}
-                                        disabled
-                                        className="bg-muted"
-                                    />
-                                    <p className="text-xs text-muted-foreground">
-                                        Email cannot be changed
-                                    </p>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="avatarUrl">Avatar URL</Label>
-                                    <Input
-                                        id="avatarUrl"
-                                        placeholder="https://example.com/avatar.jpg"
-                                        error={!!profileMethods.formState.errors.avatarUrl}
-                                        {...profileMethods.register('avatarUrl')}
-                                    />
-                                    {profileMethods.formState.errors.avatarUrl && (
-                                        <p className="text-sm text-destructive">
-                                            {profileMethods.formState.errors.avatarUrl.message}
-                                        </p>
-                                    )}
-                                </div>
-
-                                <Button type="submit" isLoading={isUpdatingProfile}>
-                                    Save Changes
-                                </Button>
-                            </form>
-                        </FormProvider>
-                    </CardContent>
-                </Card>
-
                 {/* Change Password Card */}
                 <Card>
                     <CardHeader>

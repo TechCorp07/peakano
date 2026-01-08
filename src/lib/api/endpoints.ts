@@ -36,9 +36,38 @@ export const ENDPOINTS = {
     SESSION: (id: string) => `/annotation/v1/sessions/${id}`,
   },
 
-  // DICOM Service (for later phases)
+  // DICOM Service
   DICOM: {
     STUDIES: '/dicom/v1/studies',
     STUDY: (uid: string) => `/dicom/v1/studies/${uid}`,
+    SERIES: (studyUid: string, seriesUid: string) =>
+      `/dicom/v1/studies/${studyUid}/series/${seriesUid}`,
+    INSTANCE: (studyUid: string, seriesUid: string, instanceUid: string) =>
+      `/dicom/v1/studies/${studyUid}/series/${seriesUid}/instances/${instanceUid}`,
+    UPLOAD: '/dicom/v1/studies/upload',
+    // WADO-RS endpoints
+    WADO_METADATA: (studyUid: string) =>
+      `/dicom/v1/wado/${studyUid}/metadata`,
+    WADO_SERIES: (studyUid: string, seriesUid: string) =>
+      `/dicom/v1/wado/${studyUid}/series/${seriesUid}`,
+    WADO_INSTANCE: (studyUid: string, seriesUid: string, instanceUid: string) =>
+      `/dicom/v1/wado/${studyUid}/series/${seriesUid}/instances/${instanceUid}`,
   },
+
+  // AI Service (for later phases)
+  AI: {
+    SEGMENT_AUTO: '/ai/v1/inference/segment/auto',
+    SEGMENT_INTERACTIVE: '/ai/v1/inference/segment/interactive',
+    MODELS: '/ai/v1/models',
+  },
+
+  // Evaluation Service (for later phases)
+  EVALUATION: {
+    EVALUATE: '/evaluation/v1/evaluate',
+    RESULTS: (sessionId: string) => `/evaluation/v1/sessions/${sessionId}/results`,
+    PROGRESS: (userId: string) => `/evaluation/v1/users/${userId}/progress`,
+  },
+
+  // WebSocket
+  WEBSOCKET: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8010',
 } as const;

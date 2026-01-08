@@ -1,5 +1,6 @@
 import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import { authReducer, authApi } from '@/features/auth';
+import { dicomReducer, dicomApi } from '@/features/dicom';
 
 /**
  * Root reducer combining all slices
@@ -8,9 +9,11 @@ import { authReducer, authApi } from '@/features/auth';
 const rootReducer = combineReducers({
   // Feature slices
   auth: authReducer,
-  
+  dicom: dicomReducer,
+
   // RTK Query API reducers
   [authApi.reducerPath]: authApi.reducer,
+  [dicomApi.reducerPath]: dicomApi.reducer,
 });
 
 /**
@@ -27,7 +30,8 @@ export const makeStore = () => {
         },
       }).concat(
         // Add RTK Query middleware
-        authApi.middleware
+        authApi.middleware,
+        dicomApi.middleware
       ),
     devTools: process.env.NODE_ENV !== 'production',
   });

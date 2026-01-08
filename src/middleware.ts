@@ -13,6 +13,7 @@ const publicPaths = [
     '/verify-email',
     '/privacy-policy',
     '/terms-and-conditions',
+    '/auth/callback/google',
 ];
 
 /**
@@ -39,13 +40,20 @@ function isPathMatch(pathname: string, paths: string[]): boolean {
 }
 
 /**
+ * Check if we're in development mode
+ * In development, we bypass auth checks to allow viewing all pages
+ */
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+/**
  * Middleware for route protection
- * 
+ *
  * This middleware:
  * 1. Redirects unauthenticated users to login for protected routes
  * 2. Redirects authenticated users away from auth pages to dashboard
  * 3. Passes through public routes
- * 
+ * 4. BYPASSES all checks in development mode for easier testing
+ *
  * Note: This uses cookie-based token detection. The actual token validation
  * happens on the client-side and API level for security.
  */
@@ -58,6 +66,12 @@ export function middleware(request: NextRequest) {
         pathname.startsWith('/api') ||
         pathname.includes('.') // Static files
     ) {
+        return NextResponse.next();
+    }
+
+    // DEVELOPMENT MODE: Bypass all auth checks
+    // This allows viewing all pages without a backend connection
+    if (isDevelopment) {
         return NextResponse.next();
     }
 

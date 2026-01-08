@@ -1,9 +1,16 @@
 @import "tailwindcss";
 
-/* 
+/*
  * CSS Variables for the Medical Imaging Platform
  * Using HSL values for easy theming
+ *
+ * Landing Page: Webflow-inspired (light, airy, trustworthy)
+ * App Interface: RedBrick AI-inspired (dark, focused, clinical)
  */
+
+/* ============================================
+   LANDING PAGE THEME (Light - Public Pages)
+   ============================================ */
 :root {
   /* Base colors */
   --background: 0 0% 100%;
@@ -17,8 +24,8 @@
   --popover: 0 0% 100%;
   --popover-foreground: 222.2 84% 4.9%;
 
-  /* Primary - Medical blue */
-  --primary: 221.2 83.2% 53.3%;
+  /* Primary - Indigo (Webflow-inspired) */
+  --primary: 243.4 75.4% 58.6%;
   --primary-foreground: 210 40% 98%;
 
   /* Secondary */
@@ -37,44 +44,95 @@
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
 
+  /* Success */
+  --success: 160 84% 39%;
+  --success-foreground: 210 40% 98%;
+
+  /* Warning */
+  --warning: 43 96% 56%;
+  --warning-foreground: 222.2 47.4% 11.2%;
+
   /* Border and input */
   --border: 214.3 31.8% 91.4%;
   --input: 214.3 31.8% 91.4%;
-  --ring: 221.2 83.2% 53.3%;
+  --ring: 243.4 75.4% 58.6%;
 
   /* Border radius */
   --radius: 0.5rem;
+
+  /* Landing page specific */
+  --landing-gradient-start: 225 100% 96%;
+  --landing-gradient-end: 199 100% 94%;
 }
 
-/* Dark mode */
-.dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
+/* ============================================
+   APP INTERFACE THEME (Dark - Dashboard/Viewer)
+   RedBrick AI-Inspired
+   ============================================ */
+.dark,
+[data-theme="app"] {
+  /* Deep dark blue-black backgrounds */
+  --background: 215 28% 7%;
+  --foreground: 213 31% 91%;
 
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
+  /* Elevated surfaces */
+  --card: 215 25% 9%;
+  --card-foreground: 213 31% 91%;
 
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
+  /* Popover */
+  --popover: 215 22% 13%;
+  --popover-foreground: 213 31% 91%;
 
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 47.4% 11.2%;
+  /* Primary - Bright blue for actions */
+  --primary: 212 100% 67%;
+  --primary-foreground: 215 28% 7%;
 
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
+  /* Secondary - Slightly lighter panels */
+  --secondary: 215 22% 13%;
+  --secondary-foreground: 213 31% 91%;
 
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
+  /* Muted */
+  --muted: 215 14% 27%;
+  --muted-foreground: 215 14% 55%;
 
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
+  /* Accent */
+  --accent: 212 100% 67%;
+  --accent-foreground: 215 28% 7%;
 
-  --destructive: 0 62.8% 30.6%;
+  /* Destructive - Red for errors */
+  --destructive: 4 89% 62%;
   --destructive-foreground: 210 40% 98%;
 
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 224.3 76.3% 48%;
+  /* Success - Green */
+  --success: 134 61% 51%;
+  --success-foreground: 215 28% 7%;
+
+  /* Warning - Amber */
+  --warning: 41 96% 48%;
+  --warning-foreground: 215 28% 7%;
+
+  /* Border - Subtle borders */
+  --border: 215 14% 27%;
+  --input: 215 28% 7%;
+  --ring: 212 100% 67%;
+
+  /* App-specific colors */
+  --app-bg-primary: 215 28% 7%;
+  --app-bg-secondary: 215 25% 9%;
+  --app-bg-elevated: 215 22% 13%;
+  --app-text-primary: 213 31% 91%;
+  --app-text-secondary: 215 14% 55%;
+  --app-text-muted: 215 8% 43%;
+
+  /* Annotation colors */
+  --annotation-red: 0 85% 70%;
+  --annotation-teal: 173 58% 55%;
+  --annotation-blue: 193 69% 55%;
+  --annotation-green: 150 47% 65%;
+  --annotation-yellow: 48 100% 80%;
+  --annotation-purple: 300 76% 72%;
+  --annotation-mint: 162 62% 65%;
+  --annotation-gold: 48 89% 69%;
 }
 
 @theme inline {
@@ -94,14 +152,37 @@
   --color-accent-foreground: hsl(var(--accent-foreground));
   --color-destructive: hsl(var(--destructive));
   --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), monospace;
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: var(--font-geist-sans), 'Inter', system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), 'JetBrains Mono', monospace;
+
+  /* App-specific theme colors */
+  --color-app-bg-primary: hsl(var(--app-bg-primary, var(--background)));
+  --color-app-bg-secondary: hsl(var(--app-bg-secondary, var(--card)));
+  --color-app-bg-elevated: hsl(var(--app-bg-elevated, var(--popover)));
+  --color-app-text-primary: hsl(var(--app-text-primary, var(--foreground)));
+  --color-app-text-secondary: hsl(var(--app-text-secondary, var(--muted-foreground)));
+  --color-app-text-muted: hsl(var(--app-text-muted, var(--muted-foreground)));
+
+  /* Annotation colors */
+  --color-annotation-red: hsl(var(--annotation-red, 0 85% 70%));
+  --color-annotation-teal: hsl(var(--annotation-teal, 173 58% 55%));
+  --color-annotation-blue: hsl(var(--annotation-blue, 193 69% 55%));
+  --color-annotation-green: hsl(var(--annotation-green, 150 47% 65%));
+  --color-annotation-yellow: hsl(var(--annotation-yellow, 48 100% 80%));
+  --color-annotation-purple: hsl(var(--annotation-purple, 300 76% 72%));
+  --color-annotation-mint: hsl(var(--annotation-mint, 162 62% 65%));
+  --color-annotation-gold: hsl(var(--annotation-gold, 48 89% 69%));
 }
 
 /* Base styles */
@@ -118,4 +199,195 @@ body {
 /* Focus ring utility */
 .focus-ring {
   @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+}
+
+/* ============================================
+   APP INTERFACE UTILITIES
+   ============================================ */
+
+/* Annotation workspace should always use dark theme */
+[data-theme="app"],
+.app-theme {
+  color-scheme: dark;
+}
+
+/* Toolbar button styles */
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: hsl(var(--app-text-secondary, 215 14% 55%));
+  border-radius: 0.375rem;
+  transition: all 150ms ease;
+}
+
+.toolbar-btn:hover {
+  color: hsl(var(--app-text-primary, 213 31% 91%));
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.toolbar-btn.active {
+  color: hsl(var(--primary));
+  background-color: rgba(88, 166, 255, 0.15);
+}
+
+/* Dropdown panel styles */
+.dropdown-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 10rem;
+  padding: 0.25rem;
+  background-color: hsl(var(--app-bg-elevated, 215 22% 13%));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  z-index: 50;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  color: hsl(var(--app-text-secondary, 215 14% 55%));
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: all 100ms ease;
+}
+
+.dropdown-item:hover {
+  color: hsl(var(--app-text-primary, 213 31% 91%));
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.dropdown-item.selected {
+  color: hsl(var(--primary));
+  background-color: rgba(88, 166, 255, 0.1);
+}
+
+.dropdown-item .shortcut {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  color: hsl(var(--app-text-muted, 215 8% 43%));
+  font-family: var(--font-mono);
+}
+
+/* Structure item styles */
+.structure-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.875rem;
+  text-align: left;
+  color: hsl(var(--app-text-secondary, 215 14% 55%));
+  border-radius: 0.375rem;
+  transition: all 100ms ease;
+}
+
+.structure-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.structure-item.active {
+  color: white;
+  background-color: rgba(88, 166, 255, 0.2);
+}
+
+/* Slider track styles for dark theme */
+[data-theme="app"] input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 0.375rem;
+  background: hsl(var(--muted));
+  border-radius: 0.25rem;
+  outline: none;
+}
+
+[data-theme="app"] input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  background: hsl(var(--primary));
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 100ms ease;
+}
+
+[data-theme="app"] input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+/* Viewport container */
+.viewport-container {
+  position: relative;
+  background-color: #000;
+  overflow: hidden;
+}
+
+.viewport-label {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: hsl(var(--app-text-primary, 213 31% 91%));
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 0.25rem;
+  z-index: 10;
+}
+
+.viewport-info {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.6875rem;
+  font-family: var(--font-mono);
+  color: hsl(var(--app-text-secondary, 215 14% 55%));
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 0.25rem;
+  z-index: 10;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 200ms ease;
+}
+
+.animate-slideDown {
+  animation: slideDown 200ms ease;
+}
+
+.animate-pulse-slow {
+  animation: pulse 2s ease-in-out infinite;
 }

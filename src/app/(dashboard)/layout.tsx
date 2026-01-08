@@ -4,10 +4,13 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/store/hooks';
 import { ROUTES } from '@/config/routes';
+import { AppLayout } from '@/components/layout';
+import { Loader2 } from 'lucide-react';
 
 /**
  * Dashboard Layout
  * Wraps all protected routes and handles authentication check
+ * Uses dark theme for authenticated app interface
  */
 export default function DashboardLayout({
   children,
@@ -27,8 +30,11 @@ export default function DashboardLayout({
   // Show loading state while checking auth
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="min-h-screen flex items-center justify-center bg-[#0D1117]" data-theme="app">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-[#8B949E]">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -38,22 +44,5 @@ export default function DashboardLayout({
     return null;
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Simple header for now - we'll build a proper one in Phase 2 */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-primary">MedImage Training</h1>
-          <nav>
-            {/* We'll add navigation in Phase 2 */}
-          </nav>
-        </div>
-      </header>
-
-      {/* Main content */}
-      <main className="container mx-auto px-4 py-8">
-        {children}
-      </main>
-    </div>
-  );
+  return <AppLayout>{children}</AppLayout>;
 }

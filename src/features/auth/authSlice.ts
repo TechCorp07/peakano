@@ -1,18 +1,36 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { AuthState, User, Permission } from '@/types/auth';
+import { mockUser, mockTokens } from '@/lib/mock/authData';
+
+/**
+ * Check if we should use mock auth data
+ * In development without backend, this provides a logged-in state
+ */
+const useMockAuth = process.env.NODE_ENV === 'development';
 
 /**
  * Initial authentication state
+ * Uses mock data in development for easier testing
  */
-const initialState: AuthState = {
-  user: null,
-  accessToken: null,
-  refreshToken: null,
-  isAuthenticated: false,
-  isLoading: false,
-  error: null,
-  permissions: [],
-};
+const initialState: AuthState = useMockAuth
+  ? {
+      user: mockUser,
+      accessToken: mockTokens.accessToken,
+      refreshToken: mockTokens.refreshToken,
+      isAuthenticated: true,
+      isLoading: false,
+      error: null,
+      permissions: mockUser.permissions,
+    }
+  : {
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
+      permissions: [],
+    };
 
 /**
  * Authentication slice
