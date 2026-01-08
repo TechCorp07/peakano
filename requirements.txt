@@ -29,6 +29,7 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-keycloak==3.9.0
 python-multipart==0.0.9
+cryptography==41.0.7  # For encryption
 
 # HTTP Client
 httpx==0.26.0

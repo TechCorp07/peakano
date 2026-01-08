@@ -74,6 +74,10 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:3001"]
     
+    # JWT Authentication
+    JWT_SECRET_KEY: str = "your-secret-key-change-in-production-min-32-chars-long"
+    JWT_ALGORITHM: str = "HS256"
+    
     # Logging
     LOG_LEVEL: str = "INFO"
     

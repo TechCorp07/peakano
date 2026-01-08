@@ -11,6 +11,7 @@ import sys
 
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..')))
+from shared.auth.middleware import AuthMiddleware
 from shared.common.database import init_postgres, db_manager
 from shared.common.redis_client import init_redis, redis_client
 from shared.common.exceptions import AppException
@@ -81,6 +82,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Authentication middleware
+app.add_middleware(
+    AuthMiddleware,
+    auth_service_url=settings.AUTH_SERVICE_URL,
+    secret_key=settings.JWT_SECRET_KEY,
+    exclude_paths=["/health", "/docs", "/openapi.json", "/redoc"]
+)
 
 # Exception handlers
 @app.exception_handler(AppException)

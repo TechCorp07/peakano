@@ -89,7 +89,6 @@ app.add_middleware(
     allow_headers=settings.CORS_ALLOW_HEADERS,
 )
 
-
 # Exception handlers
 @app.exception_handler(AppException)
 async def app_exception_handler(request: Request, exc: AppException):

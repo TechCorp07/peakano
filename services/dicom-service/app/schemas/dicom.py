@@ -176,3 +176,12 @@ class AnonymizeResponse(BaseModel):
     original_study_id: str
     new_study_id: Optional[str]
     message: str
+
+class BatchAnonymizeRequest(BaseModel):
+    """Batch anonymization request"""
+    study_ids: List[str]
+    keep_patient_id: bool = False
+    keep_study_date: bool = False
+    keep_descriptive_tags: bool = True
+    new_patient_prefix: Optional[str] = "ANON"
+    salt: Optional[str] = None

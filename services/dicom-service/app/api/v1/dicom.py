@@ -16,6 +16,7 @@ from shared.common.responses import success_response, error_response
 from shared.common.exceptions import NotFoundException, BadRequestException
 from app.services.orthanc_client import get_orthanc
 from app.services.dicom_processor import get_dicom_processor
+from app.services.thumbnail_generator import get_thumbnail_generator
 from app.models.dicom import Study, Series, Instance
 from app.schemas.dicom import (
     StudyResponse,
@@ -27,11 +28,156 @@ from app.schemas.dicom import (
     InstanceListResponse,
     DicomUploadResponse,
     DicomStatisticsResponse,
-    DicomSearchRequest
+    DicomSearchRequest,
+    BatchAnonymizeRequest
 )
 from app.config import settings
 
 router = APIRouter()
+
+
+@router.get("/instances/{instance_id}/thumbnail")
+async def get_instance_thumbnail(
+    instance_id: str,
+    size: Optional[str] = Query(default="256x256", regex="^\d+x\d+$"),
+    quality: int = Query(default=85, ge=1, le=100),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get DICOM instance thumbnail (faster than preview)
+    
+    Query params:
+    - size: Thumbnail size as "WIDTHxHEIGHT" (e.g., "256x256", "512x512")
+    - quality: JPEG quality 1-100
+    """
+    # Get instance
+    result = await db.execute(
+        select(Instance).where(Instance.sop_instance_uid == instance_id)
+    )
+    instance = result.scalar_one_or_none()
+    
+    if not instance or not instance.orthanc_id:
+        raise NotFoundException(f"Instance not found: {instance_id}")
+    
+    # Parse size
+    width, height = map(int, size.split('x'))
+    
+    # Get DICOM file from Orthanc
+    orthanc = get_orthanc()
+    dicom_data = await orthanc.get_instance_file(instance.orthanc_id)
+    
+    if not dicom_data:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve DICOM file"
+        )
+    
+    # Generate thumbnail
+    generator = get_thumbnail_generator()
+    thumbnail_bytes = generator.generate_from_dicom(
+        dicom_data,
+        size=(width, height),
+        quality=quality
+    )
+    
+    if not thumbnail_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate thumbnail"
+        )
+    
+    return StreamingResponse(
+        BytesIO(thumbnail_bytes),
+        media_type="image/jpeg",
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Content-Disposition": f'inline; filename="thumb_{instance_id}.jpg"'
+        }
+    )
+
+
+@router.get("/series/{series_id}/thumbnails")
+async def get_series_thumbnails(
+    series_id: str,
+    grid: Optional[str] = Query(default="3x3", regex="^\d+x\d+$"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get series preview as grid of thumbnails
+    
+    Query params:
+    - grid: Grid size as "ROWSxCOLS" (e.g., "3x3", "4x4")
+    """
+    # Get series instances
+    result = await db.execute(
+        select(Series).where(Series.series_instance_uid == series_id)
+    )
+    series = result.scalar_one_or_none()
+    
+    if not series:
+        raise NotFoundException(f"Series not found: {series_id}")
+    
+    # Get instances
+    instances_result = await db.execute(
+        select(Instance)
+        .where(Instance.series_id == series.id)
+        .order_by(Instance.instance_number)
+        .limit(20)  # Max 20 images for grid
+    )
+    instances = instances_result.scalars().all()
+    
+    # Download DICOM files
+    orthanc = get_orthanc()
+    dicom_files = []
+    for instance in instances:
+        dicom_data = await orthanc.get_instance_file(instance.orthanc_id)
+        if dicom_data:
+            dicom_files.append(dicom_data)
+    
+    # Parse grid size
+    rows, cols = map(int, grid.split('x'))
+    
+    # Generate grid
+    generator = get_thumbnail_generator()
+    grid_bytes = generator.generate_preview_grid(
+        dicom_files,
+        grid_size=(rows, cols),
+        thumbnail_size=(128, 128)
+    )
+    
+    if not grid_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate thumbnail grid"
+        )
+    
+    return StreamingResponse(
+        BytesIO(grid_bytes),
+        media_type="image/jpeg",
+        headers={
+            "Cache-Control": "public, max-age=3600"
+        }
+    )
+
+
+@router.post("/anonymize/batch")
+async def anonymize_study_batch(
+    request: BatchAnonymizeRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Anonymize entire study (all series and instances)
+    
+    Returns anonymized study with new UIDs
+    """
+    # Implementation for batch anonymization
+    processor = get_dicom_processor()
+    
+    # Get all instances in study
+    # Download, anonymize, and re-upload
+    # Track anonymization mapping
+    
+    # Return new study UID and mapping
 
 
 @router.post("/upload", response_model=DicomUploadResponse)

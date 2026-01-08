@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     REDIS_URL: Optional[str] = None
     
     # Service URLs
+    AUTH_SERVICE_URL: str = "http://auth-service:8001"
     ANNOTATION_SERVICE_URL: str = "http://annotation-service:8003"
     LMS_SERVICE_URL: str = "http://lms-service:8005"
     WEBSOCKET_SERVICE_URL: str = "http://websocket-service:8010"
@@ -63,6 +64,10 @@ class Settings(BaseSettings):
     
     # CORS
     CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:3001"]
+    
+    # JWT Authentication
+    JWT_SECRET_KEY: str = "your-secret-key-change-in-production-min-32-chars-long"
+    JWT_ALGORITHM: str = "HS256"
     
     # Logging
     LOG_LEVEL: str = "INFO"

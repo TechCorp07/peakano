@@ -100,7 +100,7 @@ async def upload_file(
     
     # Upload to MinIO
     from io import BytesIO
-    success = minio.upload_file(
+    success = minio.upload_file_encrypted(
         bucket_name=bucket_name,
         object_name=object_name,
         file_data=BytesIO(file_content),
@@ -150,11 +150,12 @@ async def upload_file(
 @router.get("/download/{file_id}")
 async def download_file(
     file_id: str,
-    generate_url: bool = True,
+    generate_url: bool = False,  # Deprecated parameter
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Download a file or get download URL
+    Download a file (decrypted stream only)
+    Note: generate_url is disabled due to encryption enforcement
     """
     minio = get_minio()
     
@@ -176,45 +177,29 @@ async def download_file(
     await db.commit()
     
     if generate_url:
-        # Generate presigned download URL
-        download_url = minio.generate_presigned_url(
-            bucket_name=file_metadata.bucket_name,
-            object_name=file_metadata.object_name,
-            expiry=settings.DOWNLOAD_URL_EXPIRY,
-            method="GET"
+        # Encryption prevents using presigned URLs
+        raise BadRequestException("Presigned URLs are disabled when encryption is enabled. Please download the file directly.")
+    
+    # Stream file directly (decrypted on the fly)
+    file_data = minio.download_file_decrypted(
+        bucket_name=file_metadata.bucket_name,
+        object_name=file_metadata.object_name
+    )
+    
+    if not file_data:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to download file from storage"
         )
-        
-        return success_response(
-            data={
-                "file_id": str(file_metadata.id),
-                "filename": file_metadata.filename,
-                "file_size": file_metadata.file_size,
-                "content_type": file_metadata.content_type,
-                "download_url": download_url,
-                "expires_in": settings.DOWNLOAD_URL_EXPIRY
-            }
-        )
-    else:
-        # Stream file directly
-        file_data = minio.download_file(
-            bucket_name=file_metadata.bucket_name,
-            object_name=file_metadata.object_name
-        )
-        
-        if not file_data:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to download file from storage"
-            )
-        
-        from io import BytesIO
-        return StreamingResponse(
-            BytesIO(file_data),
-            media_type=file_metadata.content_type or "application/octet-stream",
-            headers={
-                "Content-Disposition": f'attachment; filename="{file_metadata.filename}"'
-            }
-        )
+    
+    from io import BytesIO
+    return StreamingResponse(
+        BytesIO(file_data),
+        media_type=file_metadata.content_type or "application/octet-stream",
+        headers={
+            "Content-Disposition": f'attachment; filename="{file_metadata.filename}"'
+        }
+    )
 
 
 @router.get("/files/{file_id}", response_model=FileInfoResponse)
@@ -335,38 +320,16 @@ async def generate_presigned_url(
 ):
     """
     Generate a presigned URL for file access
+    DISABLED: Presigned URLs are not supported with encryption enabled.
     """
-    minio = get_minio()
-    
-    # Get file metadata
-    result = await db.execute(
-        select(FileMetadata).where(FileMetadata.id == uuid.UUID(request.file_id))
-    )
-    file_metadata = result.scalar_one_or_none()
-    
-    if not file_metadata:
-        raise NotFoundException(f"File not found: {request.file_id}")
-    
-    # Generate presigned URL
-    url = minio.generate_presigned_url(
-        bucket_name=file_metadata.bucket_name,
-        object_name=file_metadata.object_name,
-        expiry=request.expiry,
-        method=request.method
+    raise BadRequestException(
+        "Presigned URLs are disabled when encryption is enabled. "
+        "Files must be accessed via the storage service API to handle decryption."
     )
     
-    if not url:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to generate presigned URL"
-        )
-    
-    return PresignedUrlResponse(
-        file_id=request.file_id,
-        url=url,
-        expires_in=request.expiry,
-        method=request.method
-    )
+    # Dead code below - kept for reference if encryption is disabled
+    # minio = get_minio()
+    # ... (rest of logic)
 
 
 @router.get("/stats/{bucket_name}", response_model=BucketStatsResponse)

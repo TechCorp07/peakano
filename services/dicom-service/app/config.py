@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     
     # Auth Service URL (for token verification)
     AUTH_SERVICE_URL: str = "http://localhost:8001"
+    JWT_SECRET_KEY: str = "your-secret-key-change-in-production"
+    JWT_ALGORITHM: str = "HS256"
     
     # CORS
     CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:3001"]
@@ -74,6 +76,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 
 @lru_cache()

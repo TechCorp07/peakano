@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 from app.config import settings
 from app.api.v1 import course, enrollment, assessment, health
+from shared.auth.middleware import AuthMiddleware
 from shared.common.database import init_postgres
 from shared.common.redis_client import init_redis
 from shared.common.exceptions import AppException
@@ -65,6 +66,14 @@ app.add_middleware(
     allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
     allow_methods=settings.CORS_ALLOW_METHODS,
     allow_headers=settings.CORS_ALLOW_HEADERS,
+)
+
+# Authentication middleware
+app.add_middleware(
+    AuthMiddleware,
+    auth_service_url=settings.AUTH_SERVICE_URL,
+    secret_key=settings.JWT_SECRET_KEY,
+    exclude_paths=["/health", "/docs", "/openapi.json", "/redoc"]
 )
 
 

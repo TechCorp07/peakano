@@ -8,6 +8,7 @@ from datetime import timedelta
 from minio import Minio
 from minio.error import S3Error
 from io import BytesIO
+from shared.common.encryption import get_file_encryption
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class MinIOClient:
             logger.error(f"Error creating bucket {bucket_name}: {e}")
             return False
     
-    def upload_file(
+    def upload_file_encrypted(
         self,
         bucket_name: str,
         object_name: str,
@@ -55,18 +56,34 @@ class MinIOClient:
     ) -> bool:
         """Upload a file to MinIO"""
         try:
+            encryption = get_file_encryption()
+            
+            # Read and encrypt file
+            plain_data = file_data.read()
+            encrypted_data = encryption.encrypt_file(plain_data)
+            
+            # Upload encrypted data
+            encrypted_stream = BytesIO(encrypted_data)
+            
+            # Add encryption metadata
+            metadata = metadata or {}
+            metadata['encrypted'] = 'true'
+            metadata['encryption-algorithm'] = 'AES-256-GCM'
+            
             self.client.put_object(
                 bucket_name=bucket_name,
                 object_name=object_name,
-                data=file_data,
-                length=file_size,
+                data=encrypted_stream,
+                length=len(encrypted_data),
                 content_type=content_type,
-                metadata=metadata or {}
+                metadata=metadata
             )
-            logger.info(f"File uploaded: {bucket_name}/{object_name}")
+            
+            logger.info(f"Encrypted file uploaded: {bucket_name}/{object_name}")
             return True
-        except S3Error as e:
-            logger.error(f"Error uploading file: {e}")
+            
+        except Exception as e:
+            logger.error(f"Error uploading encrypted file: {e}")
             return False
     
     def upload_bytes(
@@ -94,21 +111,32 @@ class MinIOClient:
             logger.error(f"Error uploading bytes: {e}")
             return False
     
-    def download_file(
+    def download_file_decrypted(
         self,
         bucket_name: str,
         object_name: str
     ) -> Optional[bytes]:
         """Download a file from MinIO"""
         try:
+            # Download encrypted file
             response = self.client.get_object(bucket_name, object_name)
-            data = response.read()
+            encrypted_data = response.read()
             response.close()
             response.release_conn()
-            logger.info(f"File downloaded: {bucket_name}/{object_name}")
-            return data
-        except S3Error as e:
-            logger.error(f"Error downloading file: {e}")
+            
+            # Check if file is encrypted
+            obj_info = self.client.stat_object(bucket_name, object_name)
+            is_encrypted = obj_info.metadata.get('X-Amz-Meta-Encrypted') == 'true'
+            
+            if is_encrypted:
+                encryption = get_file_encryption()
+                plain_data = encryption.decrypt_file(encrypted_data)
+                return plain_data
+            else:
+                return encrypted_data
+                
+        except Exception as e:
+            logger.error(f"Error downloading decrypted file: {e}")
             return None
     
     def delete_file(
