@@ -28,6 +28,7 @@ import {
   useImperativeHandle,
 } from 'react';
 import { cn } from '@/lib/utils';
+import { generateUUID } from '@/lib/utils/uuid';
 
 // === TYPES ===
 export type CanvasToolType = 'freehand' | 'brush' | 'eraser' | 'polygon' | 'none';
@@ -1158,7 +1159,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         setDisplayIsActive(true);
         lastCanvasPointRef.current = canvasPoint;
         activeRef.current = {
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           type: 'eraser',
           pointsWorld: [worldPoint],
           radius: worldRadius,
@@ -1238,7 +1239,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
           setDisplayIsActive(true);
           lastCanvasPointRef.current = canvasPoint;
           activeRef.current = {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             type: 'brush',
             pointsWorld: [worldPoint],
             radius: worldRadius,
@@ -1255,7 +1256,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         setDisplayIsActive(true);
         lastCanvasPointRef.current = canvasPoint;
         activeRef.current = {
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           type: 'eraser',
           pointsWorld: [worldPoint],
           radius: worldRadius,
@@ -1271,7 +1272,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
           const startCanvas = worldToCanvas(verts[0]);
           if (startCanvas && canvasDistance(canvasPoint, startCanvas) < 15) {
             const polygonAnnotation: WorldPolygonAnnotation = {
-              id: crypto.randomUUID(),
+              id: generateUUID(),
               type: 'polygon',
               pointsWorld: [...verts],
               completed: true,
@@ -1300,7 +1301,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
             if (startCanvas && canvasDistance(canvasPoint, startCanvas) < 15) {
               // Close to starting point - commit the annotation
               const freehandAnnotation: WorldFreehandAnnotation = {
-                id: crypto.randomUUID(),
+                id: generateUUID(),
                 type: 'freehand',
                 pointsWorld: [...freehandPath],
                 completed: true,
@@ -1363,7 +1364,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
             setDisplayIsActive(true);
             lastCanvasPointRef.current = canvasPoint;
             activeRef.current = {
-              id: crypto.randomUUID(),
+              id: generateUUID(),
               type: 'brush',
               pointsWorld: [worldPoint],
               radius: worldRadius,
@@ -1387,7 +1388,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
             if (startCanvas && canvasDistance(canvasPoint, startCanvas) < 15) {
               // Close and commit the erase freehand
               const eraserFreehandAnnotation: WorldEraserFreehand = {
-                id: crypto.randomUUID(),
+                id: generateUUID(),
                 type: 'eraser-freehand',
                 pointsWorld: [...erasePath],
               };
@@ -1425,7 +1426,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
             if (startCanvas && canvasDistance(canvasPoint, startCanvas) < 15) {
               // Close and commit the erase polygon
               const eraserPolygonAnnotation: WorldEraserPolygon = {
-                id: crypto.randomUUID(),
+                id: generateUUID(),
                 type: 'eraser-polygon',
                 pointsWorld: [...eraseVerts],
               };
@@ -1674,7 +1675,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         const verts = polygonVerticesRef.current;
         if (verts.length >= 3) {
           const polygonAnnotation: WorldPolygonAnnotation = {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             type: 'polygon',
             pointsWorld: [...verts],
             completed: true,
@@ -1693,7 +1694,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         if (eraseVerts.length >= 3) {
           // Commit eraser-polygon annotation
           const eraserPolygonAnnotation: WorldEraserPolygon = {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             type: 'eraser-polygon',
             pointsWorld: [...eraseVerts],
           };
