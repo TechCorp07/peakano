@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Settings,
   User,
@@ -9,11 +10,11 @@ import {
   ChevronDown,
   Bell,
   HelpCircle,
-  Layers,
 } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { logout } from '@/features/auth/authSlice';
 import { ROUTES } from '@/config/routes';
+import { siteConfig } from '@/config/site';
 
 export default function AppHeader() {
   const dispatch = useAppDispatch();
@@ -25,15 +26,20 @@ export default function AppHeader() {
   };
 
   return (
-    <header className="h-14 bg-[#161B22] border-b border-[#30363D] flex items-center justify-between px-4">
+    <header className="h-[72px] bg-[#161B22] border-b border-[#30363D] flex items-center justify-between px-4">
       {/* Left: Logo */}
       <div className="flex items-center gap-6">
         {/* Logo */}
         <Link href={ROUTES.DASHBOARD} className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center">
-            <Layers className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-white font-semibold hidden md:block">MRI Training Platform</span>
+          <Image
+            src={siteConfig.logo}
+            alt={siteConfig.name}
+            width={394}
+            height={112}
+            className="h-12 w-auto object-contain"
+            priority
+          />
+          <span className="text-white font-semibold text-xl hidden md:block">{siteConfig.name}</span>
         </Link>
       </div>
 

@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useStudyList } from '@/features/dicom/hooks';
-import { mockStudies } from '@/lib/mock/dicomData';
+import { staticStudies } from '@/lib/mock/dicomData';
 import { cn } from '@/lib/utils';
 import type { Modality, Study } from '@/types/dicom';
 
@@ -62,8 +62,8 @@ export default function StudiesPage() {
   const studies: Study[] = useMemo(() => {
     if (apiStudies && apiStudies.length > 0) return apiStudies;
     if (error || (!isLoading && apiStudies.length === 0)) {
-      // Filter mock data based on search/modality
-      let filtered = mockStudies;
+      // Filter static DICOM files based on search/modality
+      let filtered = staticStudies;
       if (searchTerm) {
         filtered = filtered.filter((s) =>
           s.patientName?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -220,12 +220,12 @@ export default function StudiesPage() {
         </Alert>
       )}
 
-      {/* Mock data notice */}
+      {/* Static data notice */}
       {error && studies.length > 0 && (
-        <Alert className="mb-6 border-warning/50 bg-warning/10">
-          <AlertCircle className="h-4 w-4 text-warning" />
-          <AlertDescription className="text-warning">
-            Showing demo data. Connect backend to see real studies.
+        <Alert className="mb-6 border-blue-500/50 bg-blue-500/10">
+          <AlertCircle className="h-4 w-4 text-blue-400" />
+          <AlertDescription className="text-blue-400">
+            Showing pre-loaded sample DICOM files. Connect backend to see uploaded studies.
           </AlertDescription>
         </Alert>
       )}

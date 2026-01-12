@@ -1,37 +1,23 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowLeft } from 'lucide-react';
 import { ROUTES } from '@/config/routes';
+import { siteConfig } from '@/config/site';
 
 /**
  * PeakPoint Logo Component
  */
 function PeakPointLogo({ size = 40 }: { size?: number }) {
   return (
-    <div
-      className="rounded-lg flex items-center justify-center"
-      style={{
-        width: size,
-        height: size,
-        background: 'linear-gradient(135deg, #00FF66 0%, #00CC52 100%)'
-      }}
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="black"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        style={{ width: size * 0.5, height: size * 0.5 }}
-      >
-        <polygon points="12 2 2 7 12 12 22 7 12 2" />
-        <polyline points="2 17 12 22 22 17" />
-        <polyline points="2 12 12 17 22 12" />
-      </svg>
-    </div>
+    <Image
+      src={siteConfig.logo}
+      alt={siteConfig.name}
+      width={size}
+      height={size}
+      className="object-contain"
+    />
   );
 }
 
@@ -69,7 +55,7 @@ export default function TermsAndConditionsPage() {
         <div className="container mx-auto px-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3">
             <PeakPointLogo size={40} />
-            <span className="text-white text-lg font-semibold">Peakpoint Services</span>
+            <span className="text-white text-lg font-semibold">{siteConfig.name}</span>
           </Link>
           <nav className="flex items-center gap-4">
             <Link

@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAppSelector } from '@/store/hooks';
 import { ROUTES } from '@/config/routes';
+import { siteConfig } from '@/config/site';
 
 /**
- * Home Page - MRI Training Platform
+ * Home Page - Annotation Tool
  * Landing page matching the existing MVP at training.peakpoint.africa
  */
 export default function HomePage() {
@@ -56,24 +58,15 @@ export default function HomePage() {
       {/* Navbar */}
       <header className="sticky top-0 z-50 bg-[#0F172A]/95 backdrop-blur">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-xl font-bold">
-            <div className="w-8 h-8 rounded-lg bg-[#00D95A] flex items-center justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="black"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-5 w-5"
-              >
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
-            </div>
-            <span className="text-white">MRI Training Platform</span>
+          <Link href="/" className="flex items-center gap-3 text-xl font-bold">
+            <Image
+              src={siteConfig.logo}
+              alt={siteConfig.name}
+              width={40}
+              height={40}
+              className="w-10 h-10 object-contain"
+            />
+            <span className="text-white">{siteConfig.name}</span>
           </Link>
           <nav className="flex items-center gap-4">
             {isAuthenticated ? (
@@ -114,28 +107,17 @@ export default function HomePage() {
         <div className="container mx-auto px-4 text-center relative z-10">
           {/* Logo */}
           <div className="flex justify-center mb-8">
-            <div className="w-20 h-20 rounded-2xl bg-[#00D95A]/10 border border-[#00D95A]/20 flex items-center justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#00D95A"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-10 w-10"
-              >
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
-            </div>
+            <Image
+              src={siteConfig.logo}
+              alt={siteConfig.name}
+              width={80}
+              height={80}
+              className="w-20 h-20 object-contain"
+            />
           </div>
 
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-6">
-            MRI Data Annotation
-            <br />
-            <span className="text-[#00D95A]">Training Platform</span>
+            <span className="text-[#00D95A]">{siteConfig.name}</span>
           </h1>
 
           <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10">
@@ -238,10 +220,10 @@ export default function HomePage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="text-slate-500 text-sm">
-              © {new Date().getFullYear()} Peakpoint Services - MRI Training Platform
+              © {new Date().getFullYear()} Peakpoint Services - {siteConfig.name}
               <br className="md:hidden" />
               <span className="hidden md:inline"> · </span>
-              African Medical Annotation Training & Assessment System
+              Medical Imaging Annotation Tool
             </div>
             <div className="flex items-center gap-6">
               <Link

@@ -3,7 +3,8 @@
  * Values come from environment variables with fallbacks
  */
 export const siteConfig = {
-  name: process.env.NEXT_PUBLIC_SITE_NAME || 'Medical Imaging Training Platform',
+  name: process.env.NEXT_PUBLIC_SITE_NAME || 'Annotation Tool',
+  logo: '/PeakPoint Services logo design.png',
   description: 'Train to annotate medical images with AI-powered assistance',
   url: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000',
   apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',

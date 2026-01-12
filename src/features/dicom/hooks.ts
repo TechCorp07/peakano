@@ -30,6 +30,12 @@ import {
   getStudyFilesAsBlobUrls,
   type StoredStudy,
 } from '@/lib/storage/dicomStorage';
+import {
+  isStaticStudy,
+  getStaticStudyWithSeries,
+  getStaticSeriesForStudy,
+  getStaticInstancesForSeries,
+} from '@/lib/mock/dicomData';
 
 // Local storage key - kept for backwards compatibility/migration
 const LOCAL_STUDIES_KEY = 'mri-platform-local-studies';
@@ -53,6 +59,34 @@ export class LocalStudyExpiredError extends Error {
 }
 
 /**
+ * Get static study with series structure (for pre-loaded DICOM files in public/dicom/)
+ */
+function getStaticStudyData(studyInstanceUID: string): { study: StudyWithSeries; expired: boolean } | null {
+  const studyWithSeries = getStaticStudyWithSeries(studyInstanceUID);
+  if (!studyWithSeries) return null;
+
+  // Convert series to SeriesWithInstances format
+  const seriesWithInstances: SeriesWithInstances[] = studyWithSeries.series.map((s) => {
+    const instances = getStaticInstancesForSeries(s.seriesInstanceUID);
+    return {
+      ...s,
+      instances: instances.map((inst) => ({
+        ...inst,
+        _staticUrl: (inst as any)._staticUrl,
+      })),
+    };
+  });
+
+  return {
+    study: {
+      ...studyWithSeries,
+      series: seriesWithInstances,
+    },
+    expired: false, // Static studies never expire
+  };
+}
+
+/**
  * Retrieve a local study from IndexedDB and convert to StudyWithSeries format
  * Creates fresh blob URLs from stored ArrayBuffer data
  */
@@ -60,7 +94,12 @@ async function getLocalStudyWithSeries(studyInstanceUID: string): Promise<{ stud
   if (typeof window === 'undefined') return null;
 
   try {
-    // First, try to get from IndexedDB
+    // First, check if this is a static study (pre-loaded files)
+    if (isStaticStudy(studyInstanceUID)) {
+      return getStaticStudyData(studyInstanceUID);
+    }
+
+    // Then, try to get from IndexedDB
     const storedStudy = await getStoredStudy(studyInstanceUID);
 
     if (storedStudy) {
@@ -316,8 +355,11 @@ const initialLocalStudyState: LocalStudyState = {
 export function useStudyLoader(studyInstanceUID: string | undefined) {
   const dispatch = useAppDispatch();
 
-  // Memoize isLocal check to prevent infinite loops
+  // Memoize isLocal/isStatic check to prevent infinite loops
+  // Both local (uploaded) and static (pre-loaded) studies are handled similarly
   const isLocal = studyInstanceUID?.startsWith('local-') ?? false;
+  const isStatic = studyInstanceUID ? isStaticStudy(studyInstanceUID) : false;
+  const needsLocalLoading = isLocal || isStatic;
 
   // Use reducer for atomic state updates
   const [localState, dispatchLocal] = useReducer(localStudyReducer, initialLocalStudyState);
@@ -325,16 +367,16 @@ export function useStudyLoader(studyInstanceUID: string | undefined) {
   // Use ref to track loading to prevent duplicate loads (refs don't trigger re-renders)
   const loadingRef = useRef<string | null>(null);
 
-  // Only use API query for non-local studies
+  // Only use API query for non-local and non-static studies
   const { data: apiData, isLoading: apiLoading, error: apiError, refetch: apiRefetch } = useGetStudyWithSeriesQuery(
     studyInstanceUID!,
-    { skip: !studyInstanceUID || isLocal }
+    { skip: !studyInstanceUID || needsLocalLoading }
   );
 
-  // Load local study from IndexedDB (async)
+  // Load local/static study (async for local, sync for static but kept async for consistency)
   useEffect(() => {
-    // Skip if not local or no UID
-    if (!isLocal || !studyInstanceUID) {
+    // Skip if not local/static or no UID
+    if (!needsLocalLoading || !studyInstanceUID) {
       return;
     }
 
@@ -389,28 +431,28 @@ export function useStudyLoader(studyInstanceUID: string | undefined) {
       // This handles React Strict Mode and HMR which unmount/remount components
       loadingRef.current = null;
     };
-  }, [studyInstanceUID, isLocal, dispatch]);
+  }, [studyInstanceUID, needsLocalLoading, dispatch]);
 
   // Dispatch API data to Redux when loaded
   useEffect(() => {
-    if (apiData && !isLocal) {
+    if (apiData && !needsLocalLoading) {
       dispatch(setCurrentStudy(apiData));
     }
-  }, [apiData, isLocal, dispatch]);
+  }, [apiData, needsLocalLoading, dispatch]);
 
   // Return appropriate data based on study type
-  const study = isLocal ? localState.study : apiData;
-  // For local studies, consider loading if:
+  const study = needsLocalLoading ? localState.study : apiData;
+  // For local/static studies, consider loading if:
   // 1. We're explicitly loading (localState.loading), OR
   // 2. We haven't loaded yet (no study) AND we haven't errored (no error) AND we have a UID to load
   // This prevents the brief flash where loading=false before the effect runs
-  const isLoading = isLocal
+  const isLoading = needsLocalLoading
     ? (localState.loading || (!localState.study && !localState.error && !!studyInstanceUID))
     : apiLoading;
-  const error = isLocal ? (localState.error ? { message: localState.error } : null) : apiError;
+  const error = needsLocalLoading ? (localState.error ? { message: localState.error } : null) : apiError;
 
   const refetch = useCallback(async () => {
-    if (isLocal && studyInstanceUID) {
+    if (needsLocalLoading && studyInstanceUID) {
       loadingRef.current = null; // Reset the ref to allow re-loading
       dispatchLocal({ type: 'RESET' });
 
@@ -440,14 +482,15 @@ export function useStudyLoader(studyInstanceUID: string | undefined) {
     } else {
       apiRefetch();
     }
-  }, [isLocal, studyInstanceUID, dispatch, apiRefetch]);
+  }, [needsLocalLoading, studyInstanceUID, dispatch, apiRefetch]);
 
   return {
     study,
     isLoading,
     error,
     refetch,
-    isLocal,
+    isLocal: needsLocalLoading,
+    isStatic,
     isExpired: localState.expired,
   };
 }
@@ -462,14 +505,16 @@ export function useSeriesLoader(
 ) {
   const dispatch = useAppDispatch();
 
-  // Memoize isLocal check to prevent infinite loops
+  // Memoize isLocal/isStatic check to prevent infinite loops
   const isLocal = studyInstanceUID?.startsWith('local-') ?? false;
+  const isStatic = studyInstanceUID ? isStaticStudy(studyInstanceUID) : false;
+  const needsLocalLoading = isLocal || isStatic;
 
   // State for local series loading
   // Start with loading=true if we have both UIDs for local studies
   const [localSeries, setLocalSeries] = useState<SeriesWithInstances | null>(null);
   const [localLoading, setLocalLoading] = useState(() =>
-    isLocal && !!studyInstanceUID && !!seriesInstanceUID
+    needsLocalLoading && !!studyInstanceUID && !!seriesInstanceUID
   );
   const [localError, setLocalError] = useState<string | null>(null);
   const [isExpired, setIsExpired] = useState(false);
@@ -477,26 +522,26 @@ export function useSeriesLoader(
   // Track if we've already loaded this series to prevent re-fetching
   const loadedSeriesRef = useRef<string | null>(null);
 
-  // Only use API query for non-local studies
+  // Only use API query for non-local/non-static studies
   const { data: apiData, isLoading: apiLoading, error: apiError, refetch: apiRefetch } = useGetSeriesDetailQuery(
     { studyInstanceUID: studyInstanceUID!, seriesInstanceUID: seriesInstanceUID! },
-    { skip: !studyInstanceUID || !seriesInstanceUID || isLocal }
+    { skip: !studyInstanceUID || !seriesInstanceUID || needsLocalLoading }
   );
 
-  // When series UID changes for local studies, set loading state
+  // When series UID changes for local/static studies, set loading state
   useEffect(() => {
-    if (isLocal && studyInstanceUID && seriesInstanceUID) {
+    if (needsLocalLoading && studyInstanceUID && seriesInstanceUID) {
       const seriesKey = `${studyInstanceUID}-${seriesInstanceUID}`;
       if (loadedSeriesRef.current !== seriesKey) {
         setLocalLoading(true);
       }
     }
-  }, [isLocal, studyInstanceUID, seriesInstanceUID]);
+  }, [needsLocalLoading, studyInstanceUID, seriesInstanceUID]);
 
-  // Load local series from IndexedDB (async)
+  // Load local/static series (async for local, sync for static but kept async for consistency)
   useEffect(() => {
     const seriesKey = `${studyInstanceUID}-${seriesInstanceUID}`;
-    if (isLocal && studyInstanceUID && seriesInstanceUID && loadedSeriesRef.current !== seriesKey) {
+    if (needsLocalLoading && studyInstanceUID && seriesInstanceUID && loadedSeriesRef.current !== seriesKey) {
       loadedSeriesRef.current = seriesKey;
       setLocalError(null);
       setIsExpired(false);
@@ -544,27 +589,27 @@ export function useSeriesLoader(
         clearTimeout(timer);
       };
     }
-  }, [studyInstanceUID, seriesInstanceUID, isLocal, dispatch]);
+  }, [studyInstanceUID, seriesInstanceUID, needsLocalLoading, dispatch]);
 
   // Dispatch API data to Redux when loaded
   useEffect(() => {
-    if (apiData && !isLocal) {
+    if (apiData && !needsLocalLoading) {
       dispatch(setCurrentSeries(apiData));
       dispatch(setCurrentInstances(apiData.instances));
     }
-  }, [apiData, isLocal, dispatch]);
+  }, [apiData, needsLocalLoading, dispatch]);
 
   // Return appropriate data based on study type
-  const series = isLocal ? localSeries : apiData;
-  // For local studies, show loading if we have params but haven't loaded yet
+  const series = needsLocalLoading ? localSeries : apiData;
+  // For local/static studies, show loading if we have params but haven't loaded yet
   // For API studies, use the API loading state
-  const isLoading = isLocal
+  const isLoading = needsLocalLoading
     ? (localLoading || (!!studyInstanceUID && !!seriesInstanceUID && !localSeries && !localError))
     : apiLoading;
-  const error = isLocal ? (localError ? { message: localError } : null) : apiError;
+  const error = needsLocalLoading ? (localError ? { message: localError } : null) : apiError;
 
   const refetch = useCallback(async () => {
-    if (isLocal && studyInstanceUID && seriesInstanceUID) {
+    if (needsLocalLoading && studyInstanceUID && seriesInstanceUID) {
       loadedSeriesRef.current = null; // Allow re-fetch
       setLocalLoading(true);
       try {
@@ -588,7 +633,7 @@ export function useSeriesLoader(
     } else {
       apiRefetch();
     }
-  }, [isLocal, studyInstanceUID, seriesInstanceUID, dispatch, apiRefetch]);
+  }, [needsLocalLoading, studyInstanceUID, seriesInstanceUID, dispatch, apiRefetch]);
 
   return {
     series,
@@ -596,7 +641,8 @@ export function useSeriesLoader(
     isLoading,
     error,
     refetch,
-    isLocal,
+    isLocal: needsLocalLoading,
+    isStatic,
     isExpired,
   };
 }

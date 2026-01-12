@@ -18,6 +18,7 @@ import {
   useStackNavigation,
 } from '@/features/dicom/hooks';
 import { createWadoRsImageIds } from '@/lib/cornerstone/setup';
+import { useFrameAwareImageIds } from '@/lib/dicom';
 import { siteConfig } from '@/config/site';
 import { cn } from '@/lib/utils';
 import type { ToolType, ViewportLayoutType, ViewportCellConfig } from '@/lib/cornerstone/types';
@@ -68,8 +69,10 @@ export default function AnnotationWorkspace({
   // Active tool
   const { activeTool, setActiveTool } = useActiveTool();
 
-  // Stack navigation
-  const { currentIndex, totalImages, goToImage } = useStackNavigation(instances.length);
+  // Stack navigation - we'll update totalImages after frame detection
+  // Using 0 as initial value, will be updated when imageIds are loaded
+  const [actualTotalImages, setActualTotalImages] = useState(0);
+  const { currentIndex, totalImages, goToImage } = useStackNavigation(actualTotalImages);
 
   // Layout state
   const [activeLayout, setActiveLayout] = useState<ViewportLayoutType>('1x1');
@@ -93,8 +96,13 @@ export default function AnnotationWorkspace({
   const onLoadCalledRef = useRef(false);
   const prevImageIdsRef = useRef<string[]>([]);
 
-  // Check if this is a local study
+  // Add timeout for initialization to prevent infinite loading
+  const [initTimeout, setInitTimeout] = useState(false);
+
+  // Check if this is a local or static study
   const isLocalStudy = studyInstanceUID.startsWith('local-');
+  const isStaticStudy = studyInstanceUID.startsWith('static-');
+  const needsLocalImageIds = isLocalStudy || isStaticStudy;
 
   // Get series list from study (stable reference)
   const seriesList = useMemo(() => {
@@ -110,8 +118,69 @@ export default function AnnotationWorkspace({
     }
   }, [study, seriesList, selectedSeriesUID]);
 
-  // Generate image IDs directly (no state, just computed value)
+  // Extract file URLs from instances for frame-aware loading
+  const fileUrls = useMemo(() => {
+    console.log('[AnnotationWorkspace] fileUrls useMemo:', {
+      instancesLength: instances.length,
+      selectedSeriesUID,
+      needsLocalImageIds,
+      isLocalStudy,
+      isStaticStudy,
+    });
+
+    if (instances.length === 0 || !selectedSeriesUID || !needsLocalImageIds) {
+      console.log('[AnnotationWorkspace] fileUrls returning empty array');
+      return [];
+    }
+
+    const sortedInstances = [...instances].sort(
+      (a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0)
+    );
+
+    console.log('[AnnotationWorkspace] sortedInstances:', sortedInstances.map(inst => ({
+      id: inst.id,
+      _staticUrl: (inst as any)._staticUrl,
+      _localUrl: (inst as any)._localUrl,
+    })));
+
+    const urls = sortedInstances.map((inst) => {
+      // Check for static URL first (pre-loaded files in public/dicom/)
+      const staticUrl = (inst as any)._staticUrl;
+      if (staticUrl) {
+        // Static files are served from public directory, need full URL
+        const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+        return `${baseUrl}${staticUrl}`;
+      }
+      // Fall back to local URL (uploaded files stored as blob URLs)
+      const localUrl = (inst as any)._localUrl;
+      if (localUrl) {
+        return localUrl;
+      }
+      return '';
+    }).filter(url => url !== '');
+
+    console.log('[AnnotationWorkspace] fileUrls result:', urls);
+    return urls;
+  }, [instances, selectedSeriesUID, needsLocalImageIds, isLocalStudy, isStaticStudy]);
+
+  // Use frame-aware imageIds hook for local/static studies (detects multi-frame DICOM)
+  const {
+    imageIds: frameAwareImageIds,
+    isLoading: frameDetectionLoading,
+  } = useFrameAwareImageIds(fileUrls, needsLocalImageIds && fileUrls.length > 0);
+
+  // Generate image IDs - use frame-aware for local/static, WADO-RS for remote
   const imageIds = useMemo(() => {
+    // For local/static studies, use frame-aware imageIds
+    if (needsLocalImageIds) {
+      if (frameAwareImageIds.length > 0) {
+        return frameAwareImageIds;
+      }
+      // Fallback while loading or if frame detection fails
+      return prevImageIdsRef.current;
+    }
+
+    // For remote studies, use WADO-RS URLs (unchanged)
     if (instances.length === 0 || !selectedSeriesUID) {
       return prevImageIdsRef.current.length === 0 ? [] : prevImageIdsRef.current;
     }
@@ -120,27 +189,13 @@ export default function AnnotationWorkspace({
       (a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0)
     );
 
-    let newIds: string[];
-    if (isLocalStudy) {
-      // For local studies, use the stored object URLs with wadouri scheme
-      // Cornerstone's wadouri loader CAN handle blob: URLs - it fetches them via XMLHttpRequest
-      newIds = sortedInstances.map((inst) => {
-        const localUrl = (inst as any)._localUrl;
-        if (localUrl) {
-          return `wadouri:${localUrl}`;
-        }
-        return '';
-      }).filter(id => id !== ''); // Remove empty entries
-    } else {
-      // For remote studies, use WADO-RS URLs
-      const sopInstanceUIDs = sortedInstances.map((inst) => inst.sopInstanceUID);
-      newIds = createWadoRsImageIds(
-        siteConfig.apiUrl,
-        studyInstanceUID,
-        selectedSeriesUID,
-        sopInstanceUIDs
-      );
-    }
+    const sopInstanceUIDs = sortedInstances.map((inst) => inst.sopInstanceUID);
+    const newIds = createWadoRsImageIds(
+      siteConfig.apiUrl,
+      studyInstanceUID,
+      selectedSeriesUID,
+      sopInstanceUIDs
+    );
 
     // Only update ref if IDs actually changed
     if (JSON.stringify(newIds) !== JSON.stringify(prevImageIdsRef.current)) {
@@ -148,7 +203,21 @@ export default function AnnotationWorkspace({
     }
 
     return prevImageIdsRef.current;
-  }, [instances, studyInstanceUID, selectedSeriesUID, isLocalStudy]);
+  }, [instances, studyInstanceUID, selectedSeriesUID, needsLocalImageIds, frameAwareImageIds]);
+
+  // Update prevImageIdsRef when frame-aware imageIds are loaded
+  useEffect(() => {
+    if (needsLocalImageIds && frameAwareImageIds.length > 0) {
+      prevImageIdsRef.current = frameAwareImageIds;
+    }
+  }, [needsLocalImageIds, frameAwareImageIds]);
+
+  // Update total images count when imageIds change (for stack navigation)
+  useEffect(() => {
+    if (imageIds.length > 0) {
+      setActualTotalImages(imageIds.length);
+    }
+  }, [imageIds.length]);
 
   // Notify when viewer is ready (only once)
   useEffect(() => {
@@ -262,6 +331,19 @@ export default function AnnotationWorkspace({
   // Determine if using single or multi-viewport layout
   const isMultiViewport = activeLayout !== '1x1';
 
+  // Loading state - wait for initialization, study, series selection, and frame detection
+  const isLoadingOverall = !isInitialized || studyLoading || (study && !selectedSeriesUID) || frameDetectionLoading;
+
+  // Set init timeout to prevent infinite loading
+  useEffect(() => {
+    if (!isInitialized && !initError) {
+      const timer = setTimeout(() => {
+        setInitTimeout(true);
+      }, 15000);
+      return () => clearTimeout(timer);
+    }
+  }, [isInitialized, initError]);
+
   // Error state - handle expired local studies specially
   if (isExpired && isLocalStudy) {
     return (
@@ -306,20 +388,6 @@ export default function AnnotationWorkspace({
       </div>
     );
   }
-
-  // Loading state - wait for initialization, study, and series selection
-  const isLoadingOverall = !isInitialized || studyLoading || (study && !selectedSeriesUID);
-
-  // Add timeout for initialization to prevent infinite loading
-  const [initTimeout, setInitTimeout] = useState(false);
-  useEffect(() => {
-    if (!isInitialized && !initError) {
-      const timer = setTimeout(() => {
-        setInitTimeout(true);
-      }, 15000);
-      return () => clearTimeout(timer);
-    }
-  }, [isInitialized, initError]);
 
   if (initTimeout && !isInitialized) {
     return (

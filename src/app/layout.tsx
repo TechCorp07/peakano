@@ -4,8 +4,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Medical Imaging Training Platform",
-    template: "%s | Medical Imaging Training",
+    default: "Annotation Tool",
+    template: "%s | Annotation Tool",
   },
   description: "Train to annotate medical images with AI-powered assistance",
 };

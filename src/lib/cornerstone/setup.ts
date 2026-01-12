@@ -41,6 +41,11 @@ export async function initializeCornerstone(): Promise<void> {
     csTools = await import('@cornerstonejs/tools');
     dicomImageLoader = await import('@cornerstonejs/dicom-image-loader');
 
+    // Store on window for HMR recovery
+    if (typeof window !== 'undefined') {
+      (window as any).__cornerstoneCore = csCore;
+    }
+
     // Initialize Cornerstone core first
     await csCore.init();
 
@@ -376,12 +381,11 @@ export function getViewport(viewportId: string) {
     }
   }
 
-  // Last resort: try to access Cornerstone from window in case of HMR module reset
-  if (typeof window !== 'undefined') {
+  // Last resort: try to access Cornerstone from window cache in case of HMR module reset
+  if (typeof window !== 'undefined' && (window as any).__cornerstoneCore) {
     try {
-      // @ts-ignore - accessing dynamic import cache
-      const csCoreModule = require('@cornerstonejs/core');
-      if (csCoreModule) {
+      const csCoreModule = (window as any).__cornerstoneCore;
+      if (csCoreModule && csCoreModule.getRenderingEngine) {
         const engine = csCoreModule.getRenderingEngine(RENDERING_ENGINE_ID);
         if (engine) {
           // Update module references

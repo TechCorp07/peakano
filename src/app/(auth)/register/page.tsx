@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeOff, ChevronLeft, ChevronRight, Rocket, Info } from 'lucide-react';
@@ -22,6 +23,7 @@ import {
   type ConsentStepData,
 } from '@/features/auth/schemas';
 import { ROUTES } from '@/config/routes';
+import { siteConfig } from '@/config/site';
 
 /**
  * Google Icon SVG Component
@@ -87,28 +89,15 @@ const PROVINCES = [
  */
 function PeakPointLogoWithText() {
   return (
-    <div className="flex items-center gap-2">
-      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-[#00FF66] to-[#00CC52]">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="black"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="w-5 h-5"
-        >
-          <polygon points="12 2 2 7 12 12 22 7 12 2" />
-          <polyline points="2 17 12 22 22 17" />
-          <polyline points="2 12 12 17 22 12" />
-        </svg>
-      </div>
-      <span className="text-2xl font-bold">
-        <span className="text-[#00CC52]">peak</span>
-        <span className="text-[#0F172A]">point</span>
-        <span className="text-slate-400 text-sm font-normal ml-1">SERVICES</span>
-      </span>
+    <div className="flex items-center gap-3">
+      <Image
+        src={siteConfig.logo}
+        alt={siteConfig.name}
+        width={48}
+        height={48}
+        className="w-12 h-12 object-contain"
+      />
+      <span className="text-2xl font-bold text-[#0F172A]">{siteConfig.name}</span>
     </div>
   );
 }
@@ -336,7 +325,7 @@ export default function RegisterPage() {
           <PeakPointLogoWithText />
         </div>
         <h1 className="text-2xl md:text-3xl font-bold text-[#0F172A] mb-2">
-          MRI Data Annotation Technical Training Platform
+          {siteConfig.name}
         </h1>
         <p className="text-slate-500 mb-6">Create your candidate account</p>
 
