@@ -262,3 +262,4 @@ export { default as ViewportGrid, useViewportGridState } from './ViewportGrid';
 
 // Export annotation components
 export { default as AnnotationList } from './AnnotationList';
+export { default as NativeSegmentationOverlay, useNativeSegmentation } from './NativeSegmentationOverlay';

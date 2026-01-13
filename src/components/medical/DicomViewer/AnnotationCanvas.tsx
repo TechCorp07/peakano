@@ -101,6 +101,63 @@ const PERIODIC_SAVE_MS = 120000;
 const canvasDistance = (p1: CanvasPoint, p2: CanvasPoint): number =>
   Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
 
+// Throttle constant for pan/zoom optimization (~30fps)
+const THROTTLE_MS = 33;
+
+// Throttle utility to limit function call frequency during pan/zoom
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const createThrottle = <T extends (...args: any[]) => void>(
+  fn: T,
+  limit: number
+): { throttled: (...args: Parameters<T>) => void; flush: () => void } => {
+  let lastCall = 0;
+  let pendingArgs: Parameters<T> | null = null;
+  let timeoutId: NodeJS.Timeout | null = null;
+
+  const throttled = (...args: Parameters<T>) => {
+    const now = Date.now();
+    const remaining = limit - (now - lastCall);
+
+    if (remaining <= 0) {
+      // Enough time has passed, execute immediately
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      lastCall = now;
+      pendingArgs = null;
+      fn(...args);
+    } else {
+      // Store args for trailing call
+      pendingArgs = args;
+      if (!timeoutId) {
+        timeoutId = setTimeout(() => {
+          lastCall = Date.now();
+          timeoutId = null;
+          if (pendingArgs) {
+            fn(...pendingArgs);
+            pendingArgs = null;
+          }
+        }, remaining);
+      }
+    }
+  };
+
+  const flush = () => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    if (pendingArgs) {
+      lastCall = Date.now();
+      fn(...pendingArgs);
+      pendingArgs = null;
+    }
+  };
+
+  return { throttled, flush };
+};
+
 // === CORNERSTONE VIEWPORT INTERFACE ===
 export interface CornerstoneViewport {
   canvas: HTMLCanvasElement;
@@ -113,6 +170,12 @@ export interface CornerstoneViewport {
     position: Point3;
     viewUp: Point3;
   };
+  setCamera: (camera: {
+    parallelScale?: number;
+    focalPoint?: Point3;
+    position?: Point3;
+    viewUp?: Point3;
+  }) => void;
   render: () => void;
   resetCamera: () => void;
   setImageIdIndex: (index: number) => Promise<void>;
@@ -210,6 +273,18 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
 
     // === CACHED RECT (safe optimization - doesn't change behavior) ===
     const cachedRectRef = useRef<{ rect: DOMRect; scaleX: number; scaleY: number } | null>(null);
+
+    // === PAN/ZOOM OPTIMIZATION: Throttled drawing and camera tracking ===
+    const throttledDrawStaticRef = useRef<{ throttled: () => void; flush: () => void } | null>(null);
+    const lastCameraRef = useRef<{ parallelScale: number; focalPoint: Point3 } | null>(null);
+
+    // Phase 3: OffscreenCanvas cache for fast pan/zoom rendering
+    const offscreenCanvasRef = useRef<OffscreenCanvas | null>(null);
+    const cachedCameraRef = useRef<{ parallelScale: number; focalPoint: Point3 } | null>(null);
+    const isInteractingRef = useRef(false);
+    const interactionEndTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Note: Removed complex CSS transform approach - using simpler throttled redraw instead
 
     // === AUTOSAVE STATE ===
     const saveDirtyRef = useRef(false);
@@ -381,13 +456,23 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
     }, [viewport]);
 
     // === ANNOTATION STORAGE ===
-    const getSliceAnnotations = useCallback((): WorldAnnotation[] => {
-      return annotationsRef.current.get(imageIndex) || [];
+    // Track current imageIndex in a ref for use in callbacks without stale closures
+    const currentImageIndexRef = useRef(imageIndex);
+
+    // Update the ref whenever imageIndex changes
+    useEffect(() => {
+      currentImageIndexRef.current = imageIndex;
     }, [imageIndex]);
 
+    const getSliceAnnotations = useCallback((): WorldAnnotation[] => {
+      // Use ref to always get current imageIndex, avoiding stale closure issues
+      return annotationsRef.current.get(currentImageIndexRef.current) || [];
+    }, []);
+
     const setSliceAnnotations = useCallback((annotations: WorldAnnotation[]) => {
-      annotationsRef.current.set(imageIndex, annotations);
-    }, [imageIndex]);
+      // Use ref to always set on current imageIndex, avoiding stale closure issues
+      annotationsRef.current.set(currentImageIndexRef.current, annotations);
+    }, []);
 
     // === DIRTY FLAG HELPERS (no drawing here!) ===
     const markSaveDirty = useCallback(() => {
@@ -478,9 +563,16 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       const canvas = staticCanvasRef.current;
       if (!ctx || !canvas || !viewport) return;
 
+      // Ensure canvas dimensions are valid
+      if (canvas.width === 0 || canvas.height === 0) return;
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // Get annotations for the CURRENT slice (using ref for consistency)
       const annotations = getSliceAnnotations();
+
+      // Guard: Don't draw if no annotations for this slice
+      if (!annotations || annotations.length === 0) return;
 
       for (const ann of annotations) {
         if (ann.type === 'brush' && ann.pointsWorld.length > 0) {
@@ -622,6 +714,8 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
           ctx.restore();
         }
       }
+
+      // Note: Baseline camera tracking removed - using simpler throttled redraw approach
     }, [getStaticContext, viewport, getSliceAnnotations, worldToCanvas, getCanvasRadius]);
 
     // === DRAWING: ACTIVE CANVAS (current stroke + cursor + previews) ===
@@ -1022,30 +1116,80 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
     }, [activeTool, markActiveDirty, scheduleActiveDraw]);
 
     // === REDRAW PIPELINE (GOLDEN PART - only on IMAGE_RENDERED) ===
+    // Phase 1 & 2: Throttle static canvas redraws and detect camera changes
+    const hasCameraChanged = useCallback((): boolean => {
+      if (!viewport) return true;
+      try {
+        const camera = viewport.getCamera();
+        const last = lastCameraRef.current;
+        if (!last) {
+          // First time - store camera and indicate change
+          lastCameraRef.current = {
+            parallelScale: camera.parallelScale,
+            focalPoint: [...camera.focalPoint] as Point3,
+          };
+          return true;
+        }
+        // Check if camera has moved significantly
+        const changed =
+          Math.abs(camera.parallelScale - last.parallelScale) > 0.001 ||
+          Math.abs(camera.focalPoint[0] - last.focalPoint[0]) > 0.001 ||
+          Math.abs(camera.focalPoint[1] - last.focalPoint[1]) > 0.001;
+        if (changed) {
+          lastCameraRef.current = {
+            parallelScale: camera.parallelScale,
+            focalPoint: [...camera.focalPoint] as Point3,
+          };
+        }
+        return changed;
+      } catch {
+        return true;
+      }
+    }, [viewport]);
+
     const redrawOnRender = useCallback(() => {
       syncCanvasSize();
 
+      // Initialize throttled drawStatic if not already done
+      if (!throttledDrawStaticRef.current) {
+        throttledDrawStaticRef.current = createThrottle(drawStatic, THROTTLE_MS);
+      }
+
+      // SIMPLIFIED APPROACH: Always redraw when dirty, with throttling for camera changes
       if (staticDirtyRef.current) {
         staticDirtyRef.current = false;
-        drawStatic();
+        const cameraChanged = hasCameraChanged();
+
+        // During pan/zoom (isInteractingRef=true), use throttled draw
+        // Otherwise, draw immediately for annotation changes
+        if (isInteractingRef.current && cameraChanged) {
+          throttledDrawStaticRef.current.throttled();
+        } else {
+          drawStatic();
+        }
       }
 
       if (activeDirtyRef.current) {
         activeDirtyRef.current = false;
         drawActive();
       }
-    }, [syncCanvasSize, drawStatic, drawActive]);
+    }, [syncCanvasSize, drawStatic, drawActive, hasCameraChanged]);
 
-    // Force redraw everything
+    // Force redraw everything (bypasses throttle for immediate result)
     const redrawAll = useCallback(() => {
       syncCanvasSize();
       staticDirtyRef.current = false;
       activeDirtyRef.current = false;
+      // Flush any pending throttled draws before immediate redraw
+      if (throttledDrawStaticRef.current) {
+        throttledDrawStaticRef.current.flush();
+      }
       drawStatic();
       drawActive();
     }, [syncCanvasSize, drawStatic, drawActive]);
 
     // === CORNERSTONE EVENT LISTENERS (core of 280ms approach) ===
+    // Phase 3: Track interaction state for deferred rendering
     useEffect(() => {
       const element = cornerstoneElement;
       if (!element) return;
@@ -1057,11 +1201,32 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       };
 
       const handleCameraModified = () => {
-        // Only set dirty flags, do NOT draw here
+        // Mark interaction as active (for throttling purposes)
+        isInteractingRef.current = true;
+
+        // Mark canvases as dirty - they need redrawing
         staticDirtyRef.current = true;
         activeDirtyRef.current = true;
         // Invalidate cached rect on camera change
         cachedRectRef.current = null;
+
+        // Clear existing timer
+        if (interactionEndTimerRef.current) {
+          clearTimeout(interactionEndTimerRef.current);
+        }
+
+        // Schedule end of interaction - ensures final clean redraw after pan/zoom ends
+        interactionEndTimerRef.current = setTimeout(() => {
+          isInteractingRef.current = false;
+          // Force a clean redraw when interaction ends
+          staticDirtyRef.current = true;
+          activeDirtyRef.current = true;
+          if (throttledDrawStaticRef.current) {
+            throttledDrawStaticRef.current.flush();
+          }
+          drawStatic();
+          drawActive();
+        }, 150); // Wait 150ms after last camera change
       };
 
       import('@/lib/cornerstone/setup').then(({ getCornerstoneCore }) => {
@@ -1071,24 +1236,49 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         element.addEventListener(csCore.Enums.Events.IMAGE_RENDERED, handleImageRendered);
         element.addEventListener(csCore.Enums.Events.CAMERA_MODIFIED, handleCameraModified);
         element.addEventListener(csCore.Enums.Events.CAMERA_RESET, handleCameraModified);
-      }).catch(() => {});
+      }).catch(() => { });
 
       return () => {
+        // Cleanup interaction timer
+        if (interactionEndTimerRef.current) {
+          clearTimeout(interactionEndTimerRef.current);
+        }
         if (csCore?.Enums?.Events) {
           element.removeEventListener(csCore.Enums.Events.IMAGE_RENDERED, handleImageRendered);
           element.removeEventListener(csCore.Enums.Events.CAMERA_MODIFIED, handleCameraModified);
           element.removeEventListener(csCore.Enums.Events.CAMERA_RESET, handleCameraModified);
         }
       };
-    }, [cornerstoneElement, redrawOnRender]);
+    }, [cornerstoneElement, redrawOnRender, drawStatic, drawActive]);
 
-    // Redraw when imageIndex changes
+    // Redraw when imageIndex changes - cancel any in-progress drawing and reset state
     useEffect(() => {
+      // Cancel any in-progress drawing when switching slices
+      if (isActiveRef.current || activeRef.current) {
+        // Don't commit partial strokes to the old slice - just discard them
+        activeRef.current = null;
+        isActiveRef.current = false;
+        setDisplayIsActive(false);
+      }
+
+      // Exit erase mode when switching slices
+      if (isEraseModeRef.current) {
+        isEraseModeRef.current = false;
+        setDisplayIsEraseMode(false);
+      }
+
+      // Clear all in-progress paths
       freehandPathRef.current = [];
       eraseFreehandPathRef.current = [];
       polygonVerticesRef.current = [];
       erasePolygonVerticesRef.current = [];
-      redrawAll();
+      lastCanvasPointRef.current = null;
+
+      // Force immediate redraw for the new slice
+      // Use setTimeout to ensure currentImageIndexRef has updated
+      setTimeout(() => {
+        redrawAll();
+      }, 0);
     }, [imageIndex, redrawAll]);
 
     // Initial setup and resize observer
@@ -1882,7 +2072,10 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         <canvas
           ref={staticCanvasRef}
           className="absolute inset-0 w-full h-full"
-          style={{ pointerEvents: 'none', opacity: MASK_OPACITY }}
+          style={{
+            pointerEvents: 'none',
+            opacity: MASK_OPACITY,
+          }}
         />
 
         {/* Active canvas: current stroke + cursor */}

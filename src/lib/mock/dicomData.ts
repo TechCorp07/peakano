@@ -7,121 +7,140 @@
 import type { Study, Series, Instance } from '@/types/dicom';
 
 /**
- * Static DICOM file paths (served from public/dicom/)
+ * Helper to generate file paths for multi-slice series
+ * Series folders contain Image 0001.dcm through Image XXXX.dcm
  */
-export const STATIC_DICOM_FILES = {
-  CT_SMALL: '/dicom/CT_small.dcm',
-  LIVER: '/dicom/liver.dcm',
-  LUNG: '/dicom/lung.dcm',
-  MR_SMALL: '/dicom/MR_small.dcm',
-  MR_SMALL_BIGENDIAN: '/dicom/MR_small_bigendian.dcm',
-  MR_SMALL_PADDED: '/dicom/MR_small_padded.dcm',
-  MR_TRUNCATED: '/dicom/MR_truncated.dcm',
-} as const;
+function generateSeriesFilePaths(seriesFolder: string, sliceCount: number): string[] {
+  const paths: string[] = [];
+  for (let i = 1; i <= sliceCount; i++) {
+    const paddedNum = String(i).padStart(4, '0');
+    // URL encode the spaces in the path - files are directly in the series folder
+    paths.push(`/dicom/${encodeURIComponent(seriesFolder)}/Image%20${paddedNum}.dcm`);
+  }
+  return paths;
+}
 
 /**
- * Static DICOM studies - uses actual files from public/dicom/
+ * Helper to generate instance entries for a multi-slice series
+ */
+function generateSeriesInstances(
+  seriesId: string,
+  seriesInstanceUID: string,
+  filePaths: string[],
+  baseWindowCenter: number = 400,
+  baseWindowWidth: number = 800
+): (Instance & { _staticUrl: string })[] {
+  const sliceThickness = 3.0; // 3mm slice thickness
+  return filePaths.map((path, index) => ({
+    id: `instance-${seriesId}-${String(index + 1).padStart(4, '0')}`,
+    sopInstanceUID: `${seriesInstanceUID}-instance-${index + 1}`,
+    seriesInstanceUID: seriesInstanceUID,
+    instanceNumber: index + 1,
+    rows: 256,
+    columns: 256,
+    bitsAllocated: 16,
+    bitsStored: 12,
+    pixelRepresentation: 0,
+    windowCenter: baseWindowCenter,
+    windowWidth: baseWindowWidth,
+    rescaleIntercept: 0,
+    rescaleSlope: 1,
+    sliceThickness: sliceThickness,
+    sliceLocation: index * sliceThickness,
+    imagePositionPatient: `0\\0\\${index * sliceThickness}`,
+    imageOrientationPatient: '1\\0\\0\\0\\1\\0',
+    pixelSpacing: '0.9375\\0.9375',
+    createdAt: new Date().toISOString(),
+    _staticUrl: path,
+  }));
+}
+
+// =============================================================================
+// SERIES CONFIGURATION - 3 MRI Series (30-40 slices each)
+// =============================================================================
+
+// Patient 1 Series 0002 - 34 slices
+const PATIENT_1_SERIES_PATHS = generateSeriesFilePaths('Patient 1 Series 0002', 34);
+const PATIENT_1_SERIES_INSTANCES = generateSeriesInstances(
+  'patient-1-series-0002',
+  'static-patient-1-series-0002-series-1',
+  PATIENT_1_SERIES_PATHS,
+  400,
+  800
+);
+
+// Patient 2 Series 0004 - 38 slices
+const PATIENT_2_SERIES_PATHS = generateSeriesFilePaths('Patient 2 Series 0004', 38);
+const PATIENT_2_SERIES_INSTANCES = generateSeriesInstances(
+  'patient-2-series-0004',
+  'static-patient-2-series-0004-series-1',
+  PATIENT_2_SERIES_PATHS,
+  400,
+  800
+);
+
+// Patient 3 Series 0004 - 38 slices
+const PATIENT_3_SERIES_PATHS = generateSeriesFilePaths('Patient 3 Series 0004', 38);
+const PATIENT_3_SERIES_INSTANCES = generateSeriesInstances(
+  'patient-3-series-0004',
+  'static-patient-3-series-0004-series-1',
+  PATIENT_3_SERIES_PATHS,
+  400,
+  800
+);
+
+/**
+ * Static DICOM studies - 3 MRI studies from public/dicom/
  */
 export const staticStudies: Study[] = [
   {
-    id: 'static-ct-001',
-    studyInstanceUID: 'static-ct-small',
-    studyDate: '20241215',
-    studyTime: '103045',
-    studyDescription: 'CT Small - Sample CT Scan',
-    accessionNumber: 'STATIC-CT-001',
-    patientId: 'SAMPLE-001',
-    patientName: 'Sample Patient CT',
-    patientBirthDate: '19850101',
-    patientSex: 'O',
-    modality: 'CT',
-    numberOfSeries: 1,
-    numberOfInstances: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'static-liver-001',
-    studyInstanceUID: 'static-liver',
-    studyDate: '20241214',
-    studyTime: '141530',
-    studyDescription: 'Liver CT - Abdominal Imaging',
-    accessionNumber: 'STATIC-LIVER-001',
-    patientId: 'SAMPLE-002',
-    patientName: 'Sample Patient Liver',
-    patientBirthDate: '19900315',
-    patientSex: 'O',
-    modality: 'CT',
-    numberOfSeries: 1,
-    numberOfInstances: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'static-lung-001',
-    studyInstanceUID: 'static-lung',
-    studyDate: '20241216',
-    studyTime: '102030',
-    studyDescription: 'Lung CT - Chest Imaging',
-    accessionNumber: 'STATIC-LUNG-001',
-    patientId: 'SAMPLE-006',
-    patientName: 'Sample Patient Lung',
-    patientBirthDate: '19780520',
-    patientSex: 'O',
-    modality: 'CT',
-    numberOfSeries: 1,
-    numberOfInstances: 1,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'static-mr-001',
-    studyInstanceUID: 'static-mr-small',
-    studyDate: '20241213',
-    studyTime: '091200',
-    studyDescription: 'MR Small - Sample MRI Scan',
-    accessionNumber: 'STATIC-MR-001',
-    patientId: 'SAMPLE-003',
-    patientName: 'Sample Patient MRI',
-    patientBirthDate: '19880722',
+    id: 'static-patient-1',
+    studyInstanceUID: 'static-patient-1-series-0002',
+    studyDate: '20250113',
+    studyTime: '100000',
+    studyDescription: 'Patient 1 - PELVIC MRI Series 0002',
+    accessionNumber: 'STATIC-P1-S0002',
+    patientId: 'PATIENT-001',
+    patientName: 'Patient 1',
+    patientBirthDate: '19800101',
     patientSex: 'O',
     modality: 'MR',
     numberOfSeries: 1,
-    numberOfInstances: 1,
+    numberOfInstances: 34,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
   {
-    id: 'static-mr-002',
-    studyInstanceUID: 'static-mr-bigendian',
-    studyDate: '20241212',
-    studyTime: '160000',
-    studyDescription: 'MR Big Endian - Encoding Test',
-    accessionNumber: 'STATIC-MR-002',
-    patientId: 'SAMPLE-004',
-    patientName: 'Sample Patient MRI BE',
-    patientBirthDate: '19751108',
+    id: 'static-patient-2',
+    studyInstanceUID: 'static-patient-2-series-0004',
+    studyDate: '20250113',
+    studyTime: '110000',
+    studyDescription: 'Patient 2 - PELVIC MRISeries 0004',
+    accessionNumber: 'STATIC-P2-S0004',
+    patientId: 'PATIENT-002',
+    patientName: 'Patient 2',
+    patientBirthDate: '19850615',
     patientSex: 'O',
     modality: 'MR',
     numberOfSeries: 1,
-    numberOfInstances: 1,
+    numberOfInstances: 38,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
   {
-    id: 'static-mr-003',
-    studyInstanceUID: 'static-mr-padded',
-    studyDate: '20241211',
-    studyTime: '083000',
-    studyDescription: 'MR Padded - Padding Test',
-    accessionNumber: 'STATIC-MR-003',
-    patientId: 'SAMPLE-005',
-    patientName: 'Sample Patient MRI Padded',
-    patientBirthDate: '19650912',
+    id: 'static-patient-3',
+    studyInstanceUID: 'static-patient-3-series-0004',
+    studyDate: '20250113',
+    studyTime: '120000',
+    studyDescription: 'Patient 3 - PELVIC MRI Series 0004',
+    accessionNumber: 'STATIC-P3-S0004',
+    patientId: 'PATIENT-003',
+    patientName: 'Patient 3',
+    patientBirthDate: '19900320',
     patientSex: 'O',
     modality: 'MR',
     numberOfSeries: 1,
-    numberOfInstances: 1,
+    numberOfInstances: 38,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -132,181 +151,49 @@ export const staticStudies: Study[] = [
  */
 export const staticSeries: Series[] = [
   {
-    id: 'series-ct-001',
-    seriesInstanceUID: 'static-ct-small-series-1',
-    studyInstanceUID: 'static-ct-small',
+    id: 'series-patient-1',
+    seriesInstanceUID: 'static-patient-1-series-0002-series-1',
+    studyInstanceUID: 'static-patient-1-series-0002',
     seriesNumber: 1,
-    seriesDescription: 'CT Axial',
-    modality: 'CT',
-    bodyPart: 'CHEST',
-    numberOfInstances: 1,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'series-liver-001',
-    seriesInstanceUID: 'static-liver-series-1',
-    studyInstanceUID: 'static-liver',
-    seriesNumber: 1,
-    seriesDescription: 'Liver Axial',
-    modality: 'CT',
-    bodyPart: 'ABDOMEN',
-    numberOfInstances: 1,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'series-lung-001',
-    seriesInstanceUID: 'static-lung-series-1',
-    studyInstanceUID: 'static-lung',
-    seriesNumber: 1,
-    seriesDescription: 'Lung Axial',
-    modality: 'CT',
-    bodyPart: 'CHEST',
-    numberOfInstances: 1,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'series-mr-001',
-    seriesInstanceUID: 'static-mr-small-series-1',
-    studyInstanceUID: 'static-mr-small',
-    seriesNumber: 1,
-    seriesDescription: 'MR Axial T1',
+    seriesDescription: 'Pelvic MRI Axial T2 - 34 Slices',
     modality: 'MR',
-    bodyPart: 'BRAIN',
-    numberOfInstances: 1,
+    bodyPart: 'PELVIS',
+    numberOfInstances: 34,
     createdAt: new Date().toISOString(),
   },
   {
-    id: 'series-mr-002',
-    seriesInstanceUID: 'static-mr-bigendian-series-1',
-    studyInstanceUID: 'static-mr-bigendian',
+    id: 'series-patient-2',
+    seriesInstanceUID: 'static-patient-2-series-0004-series-1',
+    studyInstanceUID: 'static-patient-2-series-0004',
     seriesNumber: 1,
-    seriesDescription: 'MR Big Endian',
+    seriesDescription: 'Pelvic MRI Axial T2 - 38 Slices',
     modality: 'MR',
-    bodyPart: 'BRAIN',
-    numberOfInstances: 1,
+    bodyPart: 'PELVIS',
+    numberOfInstances: 38,
     createdAt: new Date().toISOString(),
   },
   {
-    id: 'series-mr-003',
-    seriesInstanceUID: 'static-mr-padded-series-1',
-    studyInstanceUID: 'static-mr-padded',
+    id: 'series-patient-3',
+    seriesInstanceUID: 'static-patient-3-series-0004-series-1',
+    studyInstanceUID: 'static-patient-3-series-0004',
     seriesNumber: 1,
-    seriesDescription: 'MR Padded',
+    seriesDescription: 'Pelvic MRI Axial T2 - 38 Slices',
     modality: 'MR',
-    bodyPart: 'BRAIN',
-    numberOfInstances: 1,
+    bodyPart: 'PELVIS',
+    numberOfInstances: 38,
     createdAt: new Date().toISOString(),
   },
 ];
 
 /**
  * Static instances - maps series to actual DICOM file URLs
+ * Total: 34 + 38 + 38 = 110 instances
  */
-export const staticInstances: Instance[] = [
-  {
-    id: 'instance-ct-001',
-    sopInstanceUID: 'static-ct-small-instance-1',
-    seriesInstanceUID: 'static-ct-small-series-1',
-    instanceNumber: 1,
-    rows: 128,
-    columns: 128,
-    bitsAllocated: 16,
-    bitsStored: 16,
-    pixelRepresentation: 1,
-    windowCenter: 40,
-    windowWidth: 400,
-    rescaleIntercept: -1024,
-    rescaleSlope: 1,
-    createdAt: new Date().toISOString(),
-    // Custom field to store the static file URL
-    _staticUrl: STATIC_DICOM_FILES.CT_SMALL,
-  },
-  {
-    id: 'instance-liver-001',
-    sopInstanceUID: 'static-liver-instance-1',
-    seriesInstanceUID: 'static-liver-series-1',
-    instanceNumber: 1,
-    rows: 512,
-    columns: 512,
-    bitsAllocated: 16,
-    bitsStored: 12,
-    pixelRepresentation: 0,
-    windowCenter: 40,
-    windowWidth: 400,
-    rescaleIntercept: -1024,
-    rescaleSlope: 1,
-    createdAt: new Date().toISOString(),
-    _staticUrl: STATIC_DICOM_FILES.LIVER,
-  },
-  {
-    id: 'instance-lung-001',
-    sopInstanceUID: 'static-lung-instance-1',
-    seriesInstanceUID: 'static-lung-series-1',
-    instanceNumber: 1,
-    rows: 512,
-    columns: 512,
-    bitsAllocated: 16,
-    bitsStored: 12,
-    pixelRepresentation: 0,
-    windowCenter: -600,
-    windowWidth: 1500,
-    rescaleIntercept: -1024,
-    rescaleSlope: 1,
-    createdAt: new Date().toISOString(),
-    _staticUrl: STATIC_DICOM_FILES.LUNG,
-  },
-  {
-    id: 'instance-mr-001',
-    sopInstanceUID: 'static-mr-small-instance-1',
-    seriesInstanceUID: 'static-mr-small-series-1',
-    instanceNumber: 1,
-    rows: 64,
-    columns: 64,
-    bitsAllocated: 16,
-    bitsStored: 16,
-    pixelRepresentation: 1,
-    windowCenter: 600,
-    windowWidth: 1600,
-    rescaleIntercept: 0,
-    rescaleSlope: 1,
-    createdAt: new Date().toISOString(),
-    _staticUrl: STATIC_DICOM_FILES.MR_SMALL,
-  },
-  {
-    id: 'instance-mr-002',
-    sopInstanceUID: 'static-mr-bigendian-instance-1',
-    seriesInstanceUID: 'static-mr-bigendian-series-1',
-    instanceNumber: 1,
-    rows: 64,
-    columns: 64,
-    bitsAllocated: 16,
-    bitsStored: 16,
-    pixelRepresentation: 1,
-    windowCenter: 600,
-    windowWidth: 1600,
-    rescaleIntercept: 0,
-    rescaleSlope: 1,
-    createdAt: new Date().toISOString(),
-    _staticUrl: STATIC_DICOM_FILES.MR_SMALL_BIGENDIAN,
-  },
-  {
-    id: 'instance-mr-003',
-    sopInstanceUID: 'static-mr-padded-instance-1',
-    seriesInstanceUID: 'static-mr-padded-series-1',
-    instanceNumber: 1,
-    rows: 64,
-    columns: 64,
-    bitsAllocated: 16,
-    bitsStored: 16,
-    pixelRepresentation: 1,
-    windowCenter: 600,
-    windowWidth: 1600,
-    rescaleIntercept: 0,
-    rescaleSlope: 1,
-    createdAt: new Date().toISOString(),
-    _staticUrl: STATIC_DICOM_FILES.MR_SMALL_PADDED,
-  },
-] as (Instance & { _staticUrl: string })[];
+export const staticInstances: (Instance & { _staticUrl: string })[] = [
+  ...PATIENT_1_SERIES_INSTANCES,
+  ...PATIENT_2_SERIES_INSTANCES,
+  ...PATIENT_3_SERIES_INSTANCES,
+];
 
 /**
  * Check if a study is a static (pre-loaded) study
@@ -333,14 +220,14 @@ export function getStaticSeriesForStudy(studyInstanceUID: string): Series[] {
  * Get static instances for a series
  */
 export function getStaticInstancesForSeries(seriesInstanceUID: string): (Instance & { _staticUrl: string })[] {
-  return staticInstances.filter((i) => i.seriesInstanceUID === seriesInstanceUID) as (Instance & { _staticUrl: string })[];
+  return staticInstances.filter((i) => i.seriesInstanceUID === seriesInstanceUID);
 }
 
 /**
  * Get the static file URL for an instance
  */
 export function getStaticInstanceUrl(sopInstanceUID: string): string | undefined {
-  const instance = staticInstances.find((i) => i.sopInstanceUID === sopInstanceUID) as (Instance & { _staticUrl?: string }) | undefined;
+  const instance = staticInstances.find((i) => i.sopInstanceUID === sopInstanceUID);
   return instance?._staticUrl;
 }
 
@@ -394,3 +281,6 @@ export function getMockSeriesForStudy(studyInstanceUID: string): Series[] {
 export function getMockInstancesForSeries(seriesInstanceUID: string): Instance[] {
   return getStaticInstancesForSeries(seriesInstanceUID);
 }
+
+// Export helper functions for adding new series
+export { generateSeriesFilePaths, generateSeriesInstances };

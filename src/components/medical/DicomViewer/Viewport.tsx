@@ -16,6 +16,7 @@ import { TOOL_GROUP_ID } from '@/lib/cornerstone/types';
 import { cn } from '@/lib/utils';
 import type { Annotation, OnAnnotationChange } from '@/types/annotation';
 import AnnotationCanvas, { type CanvasToolType, type AnnotationCanvasRef, type CornerstoneViewport } from './AnnotationCanvas';
+import NativeSegmentationOverlay, { type NativeToolType } from './NativeSegmentationOverlay';
 import { useCanvasAnnotationStore } from '@/features/annotation';
 
 /**
@@ -59,6 +60,14 @@ export interface ViewportProps {
   showOverlay?: boolean;
   /** Initial image index to display */
   initialImageIndex?: number;
+
+  /**
+   * Use native Cornerstone segmentation instead of custom canvas overlay.
+   * Native segmentation has pixel-perfect pan/zoom sync because it renders
+   * in the same WebGL pass as the image. Recommended for network deployments.
+   * Default: false (uses custom AnnotationCanvas for backward compatibility)
+   */
+  useNativeSegmentation?: boolean;
 }
 
 export default function Viewport({
@@ -74,6 +83,7 @@ export default function Viewport({
   onImageRendered,
   showOverlay = true,
   initialImageIndex = 0,
+  useNativeSegmentation = false,
 }: ViewportProps) {
   // Compute imageIds from either direct prop or study/series/instance UIDs
   const imageIds = useMemo(() => {
@@ -347,15 +357,36 @@ export default function Viewport({
     if (!element || !isReady) return;
 
     const handleWheel = (e: WheelEvent) => {
-      // Ctrl+scroll activates Zoom tool - deactivate any canvas annotation tools
-      if (e.ctrlKey && isCanvasToolActive) {
-        setCanvasTool('none');
-        // Don't prevent default - let Cornerstone handle Zoom
+      // Always prevent default to stop slice navigation during zoom
+      e.preventDefault();
+
+      // Ctrl+scroll = zoom (not slice navigation)
+      if (e.ctrlKey) {
+        // Deactivate any canvas annotation tools when zooming
+        if (isCanvasToolActive) {
+          setCanvasTool('none');
+        }
+
+        // Manually apply zoom via viewport camera
+        const viewport = viewportRef.current;
+        if (viewport) {
+          try {
+            const camera = viewport.getCamera();
+            // Zoom in on scroll up (negative deltaY), zoom out on scroll down (positive deltaY)
+            const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+            const newParallelScale = camera.parallelScale * zoomFactor;
+            // Clamp zoom to reasonable bounds
+            const clampedScale = Math.max(10, Math.min(1000, newParallelScale));
+            viewport.setCamera({ ...camera, parallelScale: clampedScale });
+            viewport.render();
+          } catch {
+            // Ignore camera errors
+          }
+        }
         return;
       }
 
-      // Regular scroll = stack navigation
-      e.preventDefault();
+      // Regular scroll = stack navigation (only when Ctrl is NOT pressed)
       const delta = e.deltaY > 0 ? 1 : -1;
       scrollToImage(currentImageIndex + delta);
     };
@@ -429,8 +460,18 @@ export default function Viewport({
         </div>
       )}
 
-      {/* Canvas annotation overlay - renders on top of DICOM viewport */}
-      {isReady && (
+      {/* Annotation overlay - either native Cornerstone segmentation or custom canvas */}
+      {isReady && useNativeSegmentation && (
+        <NativeSegmentationOverlay
+          viewportId={viewportId}
+          activeTool={canvasTool as NativeToolType}
+          brushRadius={brushRadius}
+          fillColor={fillColor}
+          disabled={!isCanvasToolActive}
+          onSegmentationChange={handleAnnotationsChange}
+        />
+      )}
+      {isReady && !useNativeSegmentation && (
         <AnnotationCanvas
           ref={annotationCanvasRef}
           activeTool={canvasTool}

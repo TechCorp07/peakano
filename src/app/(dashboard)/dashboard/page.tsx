@@ -86,7 +86,7 @@ export default function DashboardPage() {
 
   const recentActivity = [
     {
-      title: 'Completed Brain MRI annotation',
+      title: 'Completed Pelvic MRI annotation',
       time: '2 hours ago',
       icon: <Image className="h-4 w-4" />,
     },
@@ -96,7 +96,7 @@ export default function DashboardPage() {
       icon: <ClipboardCheck className="h-4 w-4" />,
     },
     {
-      title: 'Started MRI Fundamentals course',
+      title: 'Started Pelvic MRI Fundamentals course',
       time: '3 days ago',
       icon: <BookOpen className="h-4 w-4" />,
     },

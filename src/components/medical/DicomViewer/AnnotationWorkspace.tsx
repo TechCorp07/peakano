@@ -474,6 +474,7 @@ export default function AnnotationWorkspace({
                   imageIds={imageIds}
                   onImageRendered={handleImageRendered}
                   className="h-full"
+                  useNativeSegmentation={false}
                 />
 
                 {/* Viewport Label */}
