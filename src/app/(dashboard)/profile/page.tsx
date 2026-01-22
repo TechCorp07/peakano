@@ -57,48 +57,52 @@ export default function ProfilePage() {
     };
 
     return (
-        <div className="space-y-8">
+        <div className="p-6 lg:p-8 space-y-10">
             {/* Profile Header */}
-            <div className="flex items-start gap-6">
-                <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center">
+            <div className="flex items-start gap-8 p-6 bg-gradient-to-br from-[#161B22] to-[#1a1f29] rounded-2xl border border-indigo-500/20 shadow-lg shadow-indigo-500/5">
+                <div className="h-28 w-28 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-600/20 flex items-center justify-center shadow-lg shadow-indigo-500/20 border border-indigo-500/30">
                     {user?.avatarUrl ? (
                         <img
                             src={user.avatarUrl}
                             alt={`${user.firstName} ${user.lastName}`}
-                            className="h-24 w-24 rounded-full object-cover"
+                            className="h-28 w-28 rounded-2xl object-cover"
                         />
                     ) : (
-                        <User className="h-12 w-12 text-primary" />
+                        <User className="h-14 w-14 text-indigo-400" />
                     )}
                 </div>
                 <div className="flex-1">
-                    <h1 className="text-3xl font-bold">
+                    <p className="text-sm font-medium text-indigo-400 uppercase tracking-wider mb-1">
+                        Profile
+                    </p>
+                    <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight text-[#E6EDF3]">
                         {user?.firstName} {user?.lastName}
                     </h1>
-                    <p className="text-muted-foreground">{user?.email}</p>
-                    <div className="mt-2 flex items-center gap-2">
-                        <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary capitalize">
+                    <p className="text-base text-muted-foreground mt-1">{user?.email}</p>
+                    <div className="mt-3 flex items-center gap-3">
+                        <span className="inline-flex items-center rounded-lg bg-gradient-to-r from-indigo-500/20 to-violet-500/20 px-4 py-1.5 text-sm font-semibold text-indigo-400 capitalize border border-indigo-500/30">
                             {user?.role}
                         </span>
                         {user?.emailVerified ? (
-                            <span className="inline-flex items-center rounded-full bg-green-500/20 px-3 py-1 text-xs font-medium text-green-400">
+                            <span className="inline-flex items-center rounded-lg bg-gradient-to-r from-emerald-500/20 to-green-500/20 px-4 py-1.5 text-sm font-semibold text-emerald-400 border border-emerald-500/30">
+                                <CheckCircle2 className="h-4 w-4 mr-1.5" />
                                 Verified
                             </span>
                         ) : (
-                            <span className="inline-flex items-center rounded-full bg-yellow-500/20 px-3 py-1 text-xs font-medium text-yellow-400">
+                            <span className="inline-flex items-center rounded-lg bg-gradient-to-r from-amber-500/20 to-yellow-500/20 px-4 py-1.5 text-sm font-semibold text-amber-400 border border-amber-500/30">
                                 Email not verified
                             </span>
                         )}
                     </div>
                 </div>
-                <Button asChild variant="outline">
+                <Button asChild variant="outline" className="border-indigo-500/30 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10">
                     <Link href={ROUTES.PROFILE_SETTINGS}>
                         Change Password
                     </Link>
                 </Button>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-8 lg:grid-cols-2">
                 {/* Profile Information Card - Editable */}
                 <Card>
                     <CardHeader>
@@ -234,9 +238,9 @@ export default function ProfilePage() {
 
             {/* Progress and Certificates Cards */}
             <div className="grid gap-6 md:grid-cols-2">
-                <Card>
+                <Card className="border-blue-500/20 bg-gradient-to-br from-[#161B22] to-[#1a1f29] shadow-lg shadow-blue-500/5">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-blue-400">
                             <BarChart3 className="h-5 w-5" />
                             Learning Progress
                         </CardTitle>
@@ -245,15 +249,15 @@ export default function ProfilePage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Button variant="outline" className="w-full" disabled>
+                        <Button variant="outline" className="w-full border-blue-500/30 text-blue-400 hover:bg-blue-500/10" disabled>
                             Coming in Phase 6
                         </Button>
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="border-amber-500/20 bg-gradient-to-br from-[#161B22] to-[#1a1f29] shadow-lg shadow-amber-500/5">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-amber-400">
                             <Award className="h-5 w-5" />
                             Certificates
                         </CardTitle>
@@ -262,7 +266,7 @@ export default function ProfilePage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Button variant="outline" className="w-full" disabled>
+                        <Button variant="outline" className="w-full border-amber-500/30 text-amber-400 hover:bg-amber-500/10" disabled>
                             Coming in Phase 7
                         </Button>
                     </CardContent>

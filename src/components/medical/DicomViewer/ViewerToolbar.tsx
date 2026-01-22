@@ -1,126 +1,105 @@
 'use client';
 
 /**
- * ViewerToolbar Component (RedBrick AI-Inspired)
- * Top toolbar with dropdown menus for tool selection
+ * ViewerToolbar Component (Two-Row Layout)
+ * Displays all tools visibly organized by category
  */
 
-import { useState, useRef, useEffect } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
-  Pencil,
   Wand2,
-  Eye,
-  LayoutGrid,
-  SlidersHorizontal,
   Save,
   Check,
   HelpCircle,
-  ChevronDown,
   // Draw tools
   PenTool,
   Paintbrush,
   Eraser,
   Hexagon,
   // Smart tools
-  Sparkles,
   Target,
   Layers,
+  Brain,
   // View tools
-  // Crosshair, // Disabled - requires MPR setup
   Scan,
   ZoomIn,
   Move,
+  RotateCw,
   // Layout icons
   Square,
   Grid2X2,
+  LayoutGrid,
   // Adjust icons
   Contrast,
-  CircleDot,
+  SunDim,
   // Measurement tools
   Ruler,
   RectangleHorizontal,
   Circle,
   ArrowUpRight,
   MoveHorizontal,
+  // Segment tools
+  Sliders,
+  ScanLine,
+  // Mask mode icons
+  Plus,
+  Minus,
+  Crosshair,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ROUTES } from '@/config/routes';
 import type { ToolType, ViewportLayoutType } from '@/lib/cornerstone/types';
 import type { CanvasToolType } from './AnnotationCanvas';
 import { useCanvasAnnotationStore } from '@/features/annotation';
+import { useSmartToolStore, type SmartToolType } from '@/lib/smartTools';
+import { useAnnotationToolsStore, type SegmentToolType, type MaskOperationType } from '@/lib/annotation';
+import { useAISegmentationStore } from '@/lib/aiSegmentation';
 
-interface DropdownItem {
-  id: string;
-  label: string;
+interface ToolButtonProps {
   icon: React.ReactNode;
+  label: string;
+  active?: boolean;
+  onClick: () => void;
   shortcut?: string;
-  tool?: ToolType;
-  canvasTool?: CanvasToolType;
+  disabled?: boolean;
 }
 
-interface DropdownMenuProps {
-  label: string;
-  icon: React.ReactNode;
-  items: DropdownItem[];
-  selectedId?: string;
-  onSelect: (item: DropdownItem) => void;
-}
-
-function DropdownMenu({ label, icon, items, selectedId, onSelect }: DropdownMenuProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const hasSelection = items.some((item) => item.id === selectedId);
-
+function ToolButton({ icon, label, active, onClick, shortcut, disabled }: ToolButtonProps) {
   return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          'toolbar-btn',
-          hasSelection && 'active'
-        )}
-      >
-        {icon}
-        <span>{label}</span>
-        <ChevronDown className="h-3 w-3" />
-      </button>
-
-      {isOpen && (
-        <div className="dropdown-panel animate-slideDown">
-          {items.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                onSelect(item);
-                setIsOpen(false);
-              }}
-              className={cn(
-                'dropdown-item w-full',
-                item.id === selectedId && 'selected'
-              )}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-              {item.shortcut && (
-                <span className="shortcut">{item.shortcut}</span>
-              )}
-            </button>
-          ))}
-        </div>
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={shortcut ? `${label} (${shortcut})` : label}
+      className={cn(
+        'flex flex-col items-center justify-center px-2 py-1 min-w-[48px] rounded transition-colors',
+        'text-[10px] text-[#8B949E] hover:text-white hover:bg-white/10',
+        active && 'bg-primary/20 text-primary border border-primary/50',
+        disabled && 'opacity-50 cursor-not-allowed'
       )}
+    >
+      {icon}
+      <span className="mt-0.5 truncate max-w-[52px]">{label}</span>
+    </button>
+  );
+}
+
+interface ToolGroupProps {
+  label: string;
+  children: React.ReactNode;
+}
+
+function ToolGroup({ label, children }: ToolGroupProps) {
+  return (
+    <div className="flex items-center gap-0.5">
+      <span className="text-[9px] text-[#6E7681] uppercase tracking-wider mr-1 font-medium min-w-[40px]">
+        {label}
+      </span>
+      <div className="flex items-center gap-0.5">
+        {children}
+      </div>
+      <div className="w-px h-8 bg-[#30363D] mx-2" />
     </div>
   );
 }
@@ -132,6 +111,13 @@ interface ViewerToolbarProps {
   onSubmit?: () => void;
   onLayoutChange?: (layout: ViewportLayoutType) => void;
   activeLayout?: ViewportLayoutType;
+  onSmartToolChange?: (tool: SmartToolType) => void;
+  onToggleOverlay?: () => void;
+  onToggleMPR?: () => void;
+  onInvert?: () => void;
+  isInverted?: boolean;
+  showOverlay?: boolean;
+  showMPR?: boolean;
   className?: string;
 }
 
@@ -142,233 +128,489 @@ export default function ViewerToolbar({
   onSubmit,
   onLayoutChange,
   activeLayout = '1x1',
+  onSmartToolChange,
+  onToggleOverlay,
+  onToggleMPR,
+  onInvert,
+  isInverted = false,
+  showOverlay = true,
+  showMPR = false,
   className,
 }: ViewerToolbarProps) {
   // Canvas annotation store for draw tools
   const { activeTool: activeCanvasTool, setActiveTool: setCanvasTool } = useCanvasAnnotationStore();
+  // Smart tool store
+  const { activeTool: activeSmartTool, setActiveTool: setSmartTool } = useSmartToolStore();
+  // AI Segmentation store
+  const { isActive: isAIActive, setActive: setAIActive } = useAISegmentationStore();
+  // Annotation tools store (Phase 1)
+  const { 
+    activeSegmentTool,
+    maskOperationMode,
+    setActiveTool: setAnnotationTool,
+    setActiveSegmentTool,
+    setMaskOperationMode 
+  } = useAnnotationToolsStore();
 
-  const drawTools: DropdownItem[] = [
-    { id: 'freehand', label: 'Freehand', icon: <PenTool className="h-4 w-4" />, shortcut: 'F', canvasTool: 'freehand' },
-    { id: 'brush', label: 'Brush', icon: <Paintbrush className="h-4 w-4" />, shortcut: 'B', canvasTool: 'brush' },
-    { id: 'eraser', label: 'Eraser', icon: <Eraser className="h-4 w-4" />, shortcut: 'E', canvasTool: 'eraser' },
-    { id: 'polygon', label: 'Polygon', icon: <Hexagon className="h-4 w-4" />, shortcut: 'P', canvasTool: 'polygon' },
-  ];
+  // Helper to deactivate all tools (but preserve mask operation mode)
+  const deactivateAllTools = () => {
+    setCanvasTool('none');
+    setSmartTool('none');
+    setAIActive(false);
+    setActiveSegmentTool('none');
+    // Don't reset maskOperationMode - it should persist as a user preference
+    setAnnotationTool('none');
+  };
 
-  const smartTools: DropdownItem[] = [
-    { id: 'magic-wand', label: 'Magic Wand', icon: <Wand2 className="h-4 w-4" />, shortcut: 'W' },
-    { id: 'region-growing', label: 'Region Growing', icon: <Target className="h-4 w-4" />, shortcut: 'G' },
-    { id: 'interpolation', label: 'Interpolation', icon: <Layers className="h-4 w-4" />, shortcut: 'I' },
-  ];
+  // AI Segmentation handler
+  const handleAISegmentation = () => {
+    if (isAIActive) {
+      setAIActive(false);
+      return;
+    }
+    deactivateAllTools();
+    setAIActive(true);
+  };
 
-  const viewTools: DropdownItem[] = [
-    { id: 'mpr', label: 'MPR', icon: <Scan className="h-4 w-4" />, shortcut: 'M' },
-    // Crosshair tool disabled - requires MPR setup with linked viewports
-    // { id: 'crosshair', label: 'Crosshair', icon: <Crosshair className="h-4 w-4" />, shortcut: 'C', tool: 'Crosshairs' },
-    { id: 'overlay', label: 'Overlay', icon: <Layers className="h-4 w-4" />, shortcut: 'O' },
-    { id: 'zoom', label: 'Zoom', icon: <ZoomIn className="h-4 w-4" />, shortcut: 'Ctrl+Scroll', tool: 'Zoom' },
-    { id: 'pan', label: 'Pan', icon: <Move className="h-4 w-4" />, shortcut: 'Shift+Drag', tool: 'Pan' },
-  ];
-
-  const layoutOptions: DropdownItem[] = [
-    { id: '1x1', label: '1×1', icon: <Square className="h-4 w-4" />, shortcut: '1' },
-    { id: '1x2', label: '1×2', icon: <Grid2X2 className="h-4 w-4" />, shortcut: '2' },
-    { id: '2x2', label: '2×2', icon: <Grid2X2 className="h-4 w-4" />, shortcut: '3' },
-    { id: '2x3', label: '2×3', icon: <LayoutGrid className="h-4 w-4" />, shortcut: '4' },
-    { id: '3x3', label: '3×3', icon: <LayoutGrid className="h-4 w-4" />, shortcut: '5' },
-  ];
-
-  const adjustTools: DropdownItem[] = [
-    { id: 'window-level', label: 'Window/Level', icon: <Contrast className="h-4 w-4" />, tool: 'WindowLevel' },
-    { id: 'opacity', label: 'Opacity', icon: <CircleDot className="h-4 w-4" /> },
-  ];
-
-  const measureTools: DropdownItem[] = [
-    { id: 'length', label: 'Length', icon: <Ruler className="h-4 w-4" />, shortcut: 'L', tool: 'Length' },
-    { id: 'rectangle', label: 'Rectangle ROI', icon: <RectangleHorizontal className="h-4 w-4" />, shortcut: 'R', tool: 'RectangleROI' },
-    { id: 'ellipse', label: 'Ellipse ROI', icon: <Circle className="h-4 w-4" />, shortcut: 'O', tool: 'EllipticalROI' },
-    { id: 'angle', label: 'Angle', icon: <ArrowUpRight className="h-4 w-4" />, shortcut: 'A', tool: 'Angle' },
-    { id: 'bidirectional', label: 'Bidirectional', icon: <MoveHorizontal className="h-4 w-4" />, shortcut: 'D', tool: 'Bidirectional' },
-  ];
-
-  const handleDrawSelect = (item: DropdownItem) => {
-    if (item.canvasTool) {
-      // Set canvas annotation tool
-      setCanvasTool(item.canvasTool);
-      // Deactivate Cornerstone tools when using canvas tools - set to WindowLevel as neutral
-      onToolChange('WindowLevel');
-    } else if (item.tool) {
-      // Set Cornerstone tool and deactivate canvas tools
+  // Draw tool handlers
+  const handleDrawTool = (tool: CanvasToolType) => {
+    if (activeCanvasTool === tool) {
       setCanvasTool('none');
-      onToolChange(item.tool);
+      onToolChange('WindowLevel');
+      return;
+    }
+    deactivateAllTools();
+    setCanvasTool(tool);
+    onToolChange('WindowLevel');
+  };
+
+  // Smart tool handlers
+  const handleSmartTool = (tool: SmartToolType) => {
+    if (activeSmartTool === tool) {
+      setSmartTool('none');
+      onSmartToolChange?.('none');
+      return;
+    }
+    deactivateAllTools();
+    setSmartTool(tool);
+    onSmartToolChange?.(tool);
+    // Set Cornerstone tools passive
+    (async () => {
+      try {
+        const csTools = await import('@cornerstonejs/tools');
+        const toolGroup = csTools.ToolGroupManager.getToolGroup('mriToolGroup');
+        if (toolGroup) {
+          const currentPrimaryTool = toolGroup.getActivePrimaryMouseButtonTool();
+          if (currentPrimaryTool) {
+            toolGroup.setToolPassive(currentPrimaryTool);
+          }
+        }
+      } catch (e) { /* ignore */ }
+    })();
+  };
+
+  // Measure tool handlers
+  const handleMeasureTool = (tool: ToolType) => {
+    if (activeTool === tool) {
+      onToolChange('WindowLevel');
+      return;
+    }
+    deactivateAllTools();
+    onToolChange(tool);
+  };
+
+  // Segment tool handlers
+  const handleSegmentTool = (tool: SegmentToolType) => {
+    if (activeSegmentTool === tool) {
+      setActiveSegmentTool('none');
+      setAnnotationTool('none');
+      // Don't reset maskOperationMode - it should persist
+      return;
+    }
+    deactivateAllTools();
+    setActiveSegmentTool(tool);
+    
+    // Set Cornerstone tools passive
+    (async () => {
+      try {
+        const csTools = await import('@cornerstonejs/tools');
+        const toolGroup = csTools.ToolGroupManager.getToolGroup('mriToolGroup');
+        if (toolGroup) {
+          const currentPrimaryTool = toolGroup.getActivePrimaryMouseButtonTool();
+          if (currentPrimaryTool) {
+            toolGroup.setToolPassive(currentPrimaryTool);
+          }
+        }
+      } catch (e) { /* ignore */ }
+    })();
+
+    // Set annotation tool and mask operation mode
+    if (tool === 'threshold' || tool === 'adaptive-threshold' || 
+        tool === 'otsu' || tool === 'hysteresis') {
+      setAnnotationTool('threshold');
+    } else if (tool === 'mask-union') {
+      setMaskOperationMode('union');
+    } else if (tool === 'mask-subtract') {
+      setMaskOperationMode('subtract');
+    } else if (tool === 'mask-intersect') {
+      setMaskOperationMode('intersect');
     }
   };
 
-  const handleSmartSelect = (item: DropdownItem) => {
-    console.log('Smart tool selected:', item.id);
-  };
-
-  const handleViewSelect = (item: DropdownItem) => {
-    if (item.tool) {
-      setCanvasTool('none'); // Deactivate canvas tools
-      onToolChange(item.tool);
+  // View tool handlers
+  const handleViewTool = (tool: ToolType) => {
+    if (activeTool === tool) {
+      onToolChange('WindowLevel');
+      return;
     }
+    deactivateAllTools();
+    onToolChange(tool);
   };
 
-  const handleLayoutSelect = (item: DropdownItem) => {
-    onLayoutChange?.(item.id as ViewportLayoutType);
+  // Layout handler
+  const handleLayout = (layout: ViewportLayoutType) => {
+    onLayoutChange?.(layout);
   };
 
-  const handleAdjustSelect = (item: DropdownItem) => {
-    if (item.tool) {
-      setCanvasTool('none'); // Deactivate canvas tools
-      onToolChange(item.tool);
+  // Adjust tool handlers
+  const handleAdjustTool = (tool: ToolType) => {
+    if (activeTool === tool) {
+      onToolChange('WindowLevel');
+      return;
     }
+    deactivateAllTools();
+    onToolChange(tool);
   };
 
-  const handleMeasureSelect = (item: DropdownItem) => {
-    if (item.tool) {
-      setCanvasTool('none'); // Deactivate canvas tools
-      onToolChange(item.tool);
-    }
+  // Mask mode handler - sets selection combination mode
+  const handleMaskMode = (mode: MaskOperationType) => {
+    setMaskOperationMode(mode);
   };
-
-  // Keyboard shortcuts for draw tools
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger shortcuts when typing in input fields
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const key = e.key.toLowerCase();
 
-      // Draw tool shortcuts - deactivate Pan/other Cornerstone tools when selecting annotation tools
-      if (key === 'f') {
-        setCanvasTool('freehand');
-        onToolChange('WindowLevel'); // Neutral tool, not Pan
-      } else if (key === 'b') {
-        setCanvasTool('brush');
-        onToolChange('WindowLevel');
-      } else if (key === 'e') {
-        setCanvasTool('eraser');
-        onToolChange('WindowLevel');
-      } else if (key === 'p') {
-        setCanvasTool('polygon');
-        onToolChange('WindowLevel');
-      } else if (key === 'escape') {
-        // Escape to deactivate all tools (canvas tools and Pan)
-        setCanvasTool('none');
-        // Reset to default WindowLevel tool
+      // Draw tools
+      if (key === 'f') handleDrawTool('freehand');
+      else if (key === 'b') handleDrawTool('brush');
+      else if (key === 'e') handleDrawTool('eraser');
+      else if (key === 'p') handleDrawTool('polygon');
+      // Smart tools
+      else if (key === 'w') handleSmartTool('magic-wand');
+      else if (key === 'g') handleSmartTool('region-growing');
+      else if (key === 'i') handleSmartTool('interpolation');
+      else if (key === 's') handleAISegmentation();
+      // Measure tools
+      else if (key === 'l') handleMeasureTool('Length');
+      else if (key === 'r') handleMeasureTool('RectangleROI');
+      else if (key === 'a') handleMeasureTool('Angle');
+      else if (key === 'd') handleMeasureTool('Bidirectional');
+      // Segment tools
+      else if (key === 't') handleSegmentTool('threshold');
+      // View
+      else if (key === 'm') onToggleMPR?.();
+      else if (key === 'o') onToggleOverlay?.();
+      // Escape
+      else if (key === 'escape') {
+        deactivateAllTools();
         onToolChange('WindowLevel');
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setCanvasTool, onToolChange]);
+  }, [activeCanvasTool, activeSmartTool, activeTool, activeSegmentTool, isAIActive]);
 
   return (
-    <header
-      className={cn(
-        'h-14 bg-[#161B22] border-b border-[#30363D] flex items-center justify-between px-4',
-        className
-      )}
-    >
-      {/* Left Section: Back + Tool Dropdowns */}
-      <div className="flex items-center gap-1">
-        <Link
-          href={ROUTES.STUDIES}
-          className="toolbar-btn"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Back</span>
-        </Link>
+    <header className={cn('bg-[#161B22] border-b border-[#30363D]', className)}>
+      {/* Row 1: Draw, Smart, Measure, Segment */}
+      <div className="flex items-center justify-between px-3 py-1 border-b border-[#30363D]/50">
+        <div className="flex items-center overflow-x-auto">
+          {/* Back Button */}
+          <Link
+            href={ROUTES.STUDIES}
+            className="flex items-center gap-1 px-2 py-1 text-sm text-[#8B949E] hover:text-white hover:bg-white/10 rounded mr-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">Back</span>
+          </Link>
+          
+          <div className="w-px h-8 bg-[#30363D] mx-2" />
 
-        <div className="w-px h-6 bg-[#30363D] mx-2" />
+          {/* Draw Tools */}
+          <ToolGroup label="Draw">
+            <ToolButton
+              icon={<PenTool className="h-4 w-4" />}
+              label="Freehand"
+              shortcut="F"
+              active={activeCanvasTool === 'freehand'}
+              onClick={() => handleDrawTool('freehand')}
+            />
+            <ToolButton
+              icon={<Paintbrush className="h-4 w-4" />}
+              label="Brush"
+              shortcut="B"
+              active={activeCanvasTool === 'brush'}
+              onClick={() => handleDrawTool('brush')}
+            />
+            <ToolButton
+              icon={<Eraser className="h-4 w-4" />}
+              label="Eraser"
+              shortcut="E"
+              active={activeCanvasTool === 'eraser'}
+              onClick={() => handleDrawTool('eraser')}
+            />
+            <ToolButton
+              icon={<Hexagon className="h-4 w-4" />}
+              label="Polygon"
+              shortcut="P"
+              active={activeCanvasTool === 'polygon'}
+              onClick={() => handleDrawTool('polygon')}
+            />
+          </ToolGroup>
 
-        <DropdownMenu
-          label="Draw"
-          icon={<Pencil className="h-4 w-4" />}
-          items={drawTools}
-          selectedId={
-            drawTools.find((t) => t.canvasTool === activeCanvasTool)?.id
-          }
-          onSelect={handleDrawSelect}
-        />
+          {/* Smart Tools */}
+          <ToolGroup label="Smart">
+            <ToolButton
+              icon={<Wand2 className="h-4 w-4" />}
+              label="Magic"
+              shortcut="W"
+              active={activeSmartTool === 'magic-wand'}
+              onClick={() => handleSmartTool('magic-wand')}
+            />
+            <ToolButton
+              icon={<Target className="h-4 w-4" />}
+              label="Region"
+              shortcut="G"
+              active={activeSmartTool === 'region-growing'}
+              onClick={() => handleSmartTool('region-growing')}
+            />
+            <ToolButton
+              icon={<Layers className="h-4 w-4" />}
+              label="Interp"
+              shortcut="I"
+              active={activeSmartTool === 'interpolation'}
+              onClick={() => handleSmartTool('interpolation')}
+            />
+            <ToolButton
+              icon={<Brain className="h-4 w-4" />}
+              label="AI Seg"
+              shortcut="S"
+              active={isAIActive}
+              onClick={handleAISegmentation}
+            />
+          </ToolGroup>
 
-        <DropdownMenu
-          label="Smart"
-          icon={<Sparkles className="h-4 w-4" />}
-          items={smartTools}
-          onSelect={handleSmartSelect}
-        />
+          {/* Measure Tools */}
+          <ToolGroup label="Measure">
+            <ToolButton
+              icon={<Ruler className="h-4 w-4" />}
+              label="Length"
+              shortcut="L"
+              active={activeTool === 'Length'}
+              onClick={() => handleMeasureTool('Length')}
+            />
+            <ToolButton
+              icon={<RectangleHorizontal className="h-4 w-4" />}
+              label="Rect"
+              shortcut="R"
+              active={activeTool === 'RectangleROI'}
+              onClick={() => handleMeasureTool('RectangleROI')}
+            />
+            <ToolButton
+              icon={<Circle className="h-4 w-4" />}
+              label="Ellipse"
+              active={activeTool === 'EllipticalROI'}
+              onClick={() => handleMeasureTool('EllipticalROI')}
+            />
+            <ToolButton
+              icon={<ArrowUpRight className="h-4 w-4" />}
+              label="Angle"
+              shortcut="A"
+              active={activeTool === 'Angle'}
+              onClick={() => handleMeasureTool('Angle')}
+            />
+            <ToolButton
+              icon={<MoveHorizontal className="h-4 w-4" />}
+              label="Bidir"
+              shortcut="D"
+              active={activeTool === 'Bidirectional'}
+              onClick={() => handleMeasureTool('Bidirectional')}
+            />
+          </ToolGroup>
 
-        <DropdownMenu
-          label="Measure"
-          icon={<Ruler className="h-4 w-4" />}
-          items={measureTools}
-          selectedId={
-            measureTools.find((t) => t.tool === activeTool)?.id
-          }
-          onSelect={handleMeasureSelect}
-        />
+          {/* Segment Tools */}
+          <ToolGroup label="Segment">
+            <ToolButton
+              icon={<Sliders className="h-4 w-4" />}
+              label="Thresh"
+              shortcut="T"
+              active={activeSegmentTool === 'threshold'}
+              onClick={() => handleSegmentTool('threshold')}
+            />
+            <ToolButton
+              icon={<ScanLine className="h-4 w-4" />}
+              label="Adaptive"
+              active={activeSegmentTool === 'adaptive-threshold'}
+              onClick={() => handleSegmentTool('adaptive-threshold')}
+            />
+            <ToolButton
+              icon={<Target className="h-4 w-4" />}
+              label="Otsu"
+              active={activeSegmentTool === 'otsu'}
+              onClick={() => handleSegmentTool('otsu')}
+            />
+            <ToolButton
+              icon={<Layers className="h-4 w-4" />}
+              label="Hyster"
+              active={activeSegmentTool === 'hysteresis'}
+              onClick={() => handleSegmentTool('hysteresis')}
+            />
+          </ToolGroup>
+        </div>
 
-        <DropdownMenu
-          label="View"
-          icon={<Eye className="h-4 w-4" />}
-          items={viewTools}
-          selectedId={
-            viewTools.find((t) => t.tool === activeTool)?.id
-          }
-          onSelect={handleViewSelect}
-        />
-
-        <DropdownMenu
-          label="Layout"
-          icon={<LayoutGrid className="h-4 w-4" />}
-          items={layoutOptions}
-          selectedId={activeLayout}
-          onSelect={handleLayoutSelect}
-        />
-
-        <DropdownMenu
-          label="Adjust"
-          icon={<SlidersHorizontal className="h-4 w-4" />}
-          items={adjustTools}
-          selectedId={
-            adjustTools.find((t) => t.tool === activeTool)?.id
-          }
-          onSelect={handleAdjustSelect}
-        />
+        {/* Right: Save/Submit */}
+        <div className="flex items-center gap-2 ml-2">
+          {onSave && (
+            <button onClick={onSave} className="flex items-center gap-1 px-2 py-1 text-sm text-[#8B949E] hover:text-white hover:bg-white/10 rounded">
+              <Save className="h-4 w-4" />
+              <span className="hidden sm:inline">Save</span>
+            </button>
+          )}
+          {onSubmit && (
+            <button onClick={onSubmit} className="flex items-center gap-1 px-3 py-1 text-sm bg-primary hover:bg-primary/90 text-primary-foreground rounded">
+              <Check className="h-4 w-4" />
+              <span>Submit</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Right Section: Save, Submit, Help */}
-      <div className="flex items-center gap-2">
-        {onSave && (
-          <button
-            onClick={onSave}
-            className="toolbar-btn"
-          >
-            <Save className="h-4 w-4" />
-            <span>Save</span>
-          </button>
-        )}
+      {/* Row 2: View, Layout, Adjust, Mask Ops */}
+      <div className="flex items-center justify-between px-3 py-1">
+        <div className="flex items-center overflow-x-auto">
+          {/* View Tools */}
+          <ToolGroup label="View">
+            <ToolButton
+              icon={<Scan className="h-4 w-4" />}
+              label="MPR"
+              shortcut="M"
+              active={showMPR}
+              onClick={() => onToggleMPR?.()}
+            />
+            <ToolButton
+              icon={<Layers className="h-4 w-4" />}
+              label="Overlay"
+              shortcut="O"
+              active={showOverlay}
+              onClick={() => onToggleOverlay?.()}
+            />
+            <ToolButton
+              icon={<ZoomIn className="h-4 w-4" />}
+              label="Zoom"
+              active={activeTool === 'Zoom'}
+              onClick={() => handleViewTool('Zoom')}
+            />
+            <ToolButton
+              icon={<Move className="h-4 w-4" />}
+              label="Pan"
+              active={activeTool === 'Pan'}
+              onClick={() => handleViewTool('Pan')}
+            />
+            <ToolButton
+              icon={<RotateCw className="h-4 w-4" />}
+              label="Reset"
+              onClick={() => onToolChange('StackScroll')}
+            />
+          </ToolGroup>
 
-        {onSubmit && (
-          <button
-            onClick={onSubmit}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-primary hover:bg-primary/90 text-primary-foreground rounded-md transition-colors"
-          >
-            <Check className="h-4 w-4" />
-            <span>Submit</span>
-          </button>
-        )}
+          {/* Layout Options */}
+          <ToolGroup label="Layout">
+            <ToolButton
+              icon={<Square className="h-4 w-4" />}
+              label="1×1"
+              active={activeLayout === '1x1'}
+              onClick={() => handleLayout('1x1')}
+            />
+            <ToolButton
+              icon={<Grid2X2 className="h-4 w-4" />}
+              label="1×2"
+              active={activeLayout === '1x2'}
+              onClick={() => handleLayout('1x2')}
+            />
+            <ToolButton
+              icon={<Grid2X2 className="h-4 w-4" />}
+              label="2×2"
+              active={activeLayout === '2x2'}
+              onClick={() => handleLayout('2x2')}
+            />
+            <ToolButton
+              icon={<LayoutGrid className="h-4 w-4" />}
+              label="2×3"
+              active={activeLayout === '2x3'}
+              onClick={() => handleLayout('2x3')}
+            />
+            <ToolButton
+              icon={<LayoutGrid className="h-4 w-4" />}
+              label="3×3"
+              active={activeLayout === '3x3'}
+              onClick={() => handleLayout('3x3')}
+            />
+          </ToolGroup>
 
+          {/* Adjust Tools */}
+          <ToolGroup label="Adjust">
+            <ToolButton
+              icon={<Contrast className="h-4 w-4" />}
+              label="W/L"
+              active={activeTool === 'WindowLevel'}
+              onClick={() => handleAdjustTool('WindowLevel')}
+            />
+            <ToolButton
+              icon={<SunDim className="h-4 w-4" />}
+              label="Invert"
+              active={isInverted}
+              onClick={() => onInvert?.()}
+            />
+          </ToolGroup>
+
+          {/* Mask Selection Mode */}
+          <ToolGroup label="Mode">
+            <ToolButton
+              icon={<Plus className="h-4 w-4" />}
+              label="Replace"
+              active={maskOperationMode === 'replace'}
+              onClick={() => handleMaskMode('replace')}
+            />
+            <ToolButton
+              icon={<Plus className="h-4 w-4" />}
+              label="Add"
+              active={maskOperationMode === 'add'}
+              onClick={() => handleMaskMode('add')}
+            />
+            <ToolButton
+              icon={<Minus className="h-4 w-4" />}
+              label="Sub"
+              active={maskOperationMode === 'subtract'}
+              onClick={() => handleMaskMode('subtract')}
+            />
+            <ToolButton
+              icon={<Crosshair className="h-4 w-4" />}
+              label="Intersect"
+              active={maskOperationMode === 'intersect'}
+              onClick={() => handleMaskMode('intersect')}
+            />
+          </ToolGroup>
+        </div>
+
+        {/* Help */}
         <button
-          className="p-2 text-[#8B949E] hover:text-white hover:bg-white/10 rounded-md"
+          className="p-1.5 text-[#8B949E] hover:text-white hover:bg-white/10 rounded"
           title="Help"
         >
-          <HelpCircle className="h-5 w-5" />
+          <HelpCircle className="h-4 w-4" />
         </button>
       </div>
     </header>

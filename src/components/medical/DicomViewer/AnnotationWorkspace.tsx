@@ -23,6 +23,7 @@ import { siteConfig } from '@/config/site';
 import { cn } from '@/lib/utils';
 import type { ToolType, ViewportLayoutType, ViewportCellConfig } from '@/lib/cornerstone/types';
 import { LAYOUT_CONFIGS } from '@/lib/cornerstone/types';
+import type { StudyWithSeriesUrls, SeriesWithInstanceUrls, InstanceWithUrls } from '@/types/dicom';
 
 import ViewerToolbar from './ViewerToolbar';
 import ViewerLeftSidebar from './ViewerLeftSidebar';
@@ -30,6 +31,12 @@ import ViewerContextPanel from './ViewerContextPanel';
 import Viewport from './Viewport';
 import ViewportGrid from './ViewportGrid';
 import StackNavigator from './StackNavigator';
+import SmartToolsPanel from './SmartToolsPanel';
+import AISegmentationPanel from './AISegmentationPanel';
+import { MPRLayout } from './MPRLayout';
+import { useSmartToolStore, type SmartToolType } from '@/lib/smartTools';
+import { useAISegmentationStore, useAISegmentation } from '@/lib/aiSegmentation';
+import { RENDERING_ENGINE_ID } from '@/lib/cornerstone/types';
 
 interface AnnotationWorkspaceProps {
   studyInstanceUID: string;
@@ -91,6 +98,34 @@ export default function AnnotationWorkspace({
   // Zoom state
   const [zoom] = useState(100);
 
+  // Smart tools state
+  const { activeTool: activeSmartTool, setActiveTool: setSmartTool } = useSmartToolStore();
+  const [showSmartToolsPanel, setShowSmartToolsPanel] = useState(false);
+
+  // AI Segmentation state
+  const { isActive: isAIActive, setActive: setAIActive } = useAISegmentationStore();
+  const { executeSegmentation, executeAutoSegmentation } = useAISegmentation({
+    studyUid: studyInstanceUID,
+    seriesUid: selectedSeriesUID || '',
+    currentSlice: currentIndex,
+    onSegmentationComplete: (contour) => {
+      console.log('[AISegmentation] Received contour with', contour.length, 'points');
+      // TODO: Convert contour to annotation
+    },
+    onError: (error) => {
+      console.error('[AISegmentation] Error:', error);
+    },
+  });
+
+  // MPR (Multi-Planar Reconstruction) state
+  const [showMPR, setShowMPR] = useState(false);
+
+  // Overlay toggle
+  const [showOverlay, setShowOverlay] = useState(true);
+
+  // Image invert toggle
+  const [isInverted, setIsInverted] = useState(false);
+
   // Track if initial series has been set to prevent re-running
   const initialSeriesSetRef = useRef(false);
   const onLoadCalledRef = useRef(false);
@@ -105,9 +140,10 @@ export default function AnnotationWorkspace({
   const needsLocalImageIds = isLocalStudy || isStaticStudy;
 
   // Get series list from study (stable reference)
-  const seriesList = useMemo(() => {
+  const seriesList = useMemo((): SeriesWithInstanceUrls[] => {
     if (!study) return [];
-    return (study as any).series || [];
+    const studyWithSeries = study as StudyWithSeriesUrls;
+    return studyWithSeries.series || [];
   }, [study]);
 
   // Set initial series when study loads (only once)
@@ -137,22 +173,25 @@ export default function AnnotationWorkspace({
       (a, b) => (a.instanceNumber || 0) - (b.instanceNumber || 0)
     );
 
-    console.log('[AnnotationWorkspace] sortedInstances:', sortedInstances.map(inst => ({
+    // Cast instances to InstanceWithUrls for URL property access
+    const instancesWithUrls = sortedInstances as InstanceWithUrls[];
+
+    console.log('[AnnotationWorkspace] sortedInstances:', instancesWithUrls.map(inst => ({
       id: inst.id,
-      _staticUrl: (inst as any)._staticUrl,
-      _localUrl: (inst as any)._localUrl,
+      _staticUrl: inst._staticUrl,
+      _localUrl: inst._localUrl,
     })));
 
-    const urls = sortedInstances.map((inst) => {
+    const urls = instancesWithUrls.map((inst) => {
       // Check for static URL first (pre-loaded files in public/dicom/)
-      const staticUrl = (inst as any)._staticUrl;
+      const staticUrl = inst._staticUrl;
       if (staticUrl) {
         // Static files are served from public directory, need full URL
         const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
         return `${baseUrl}${staticUrl}`;
       }
       // Fall back to local URL (uploaded files stored as blob URLs)
-      const localUrl = (inst as any)._localUrl;
+      const localUrl = inst._localUrl;
       if (localUrl) {
         return localUrl;
       }
@@ -279,6 +318,153 @@ export default function AnnotationWorkspace({
     }
   }, [activeLayout, activeViewportId]);
 
+  // Handle smart tool change
+  const handleSmartToolChange = useCallback((tool: SmartToolType) => {
+    setSmartTool(tool);
+    setShowSmartToolsPanel(tool !== 'none');
+  }, [setSmartTool]);
+
+  // Handle overlay toggle
+  const handleToggleOverlay = useCallback(() => {
+    setShowOverlay(prev => !prev);
+  }, []);
+
+  // Handle image invert toggle
+  const handleToggleInvert = useCallback(() => {
+    setIsInverted(prev => !prev);
+  }, []);
+
+  // Handle MPR toggle
+  const handleToggleMPR = useCallback(() => {
+    if (imageIds.length < 3) {
+      console.warn('[AnnotationWorkspace] MPR requires at least 3 images for volume reconstruction');
+      return;
+    }
+    setShowMPR(prev => !prev);
+    console.log('[AnnotationWorkspace] MPR toggle:', !showMPR);
+  }, [imageIds.length, showMPR]);
+
+  // Quick Action: Reset View
+  const handleResetView = useCallback(async () => {
+    const viewportId = activeLayout === '1x1' ? 'main-viewport' : activeViewportId;
+    try {
+      const { getRenderingEngine } = await import('@/lib/cornerstone/setup');
+      const renderingEngine = getRenderingEngine();
+      const viewport = renderingEngine.getViewport(viewportId);
+      if (viewport) {
+        viewport.resetCamera();
+        viewport.render();
+      }
+    } catch (error) {
+      console.error('[AnnotationWorkspace] Failed to reset view:', error);
+    }
+  }, [activeLayout, activeViewportId]);
+
+  // Quick Action: Toggle Ruler (Length tool)
+  const handleToggleRuler = useCallback(() => {
+    if (activeTool === 'Length') {
+      setActiveTool('WindowLevel');
+    } else {
+      setActiveTool('Length');
+    }
+  }, [activeTool, setActiveTool]);
+
+  // Quick Action: Center Image
+  const handleCenterImage = useCallback(async () => {
+    const viewportId = activeLayout === '1x1' ? 'main-viewport' : activeViewportId;
+    try {
+      const { getRenderingEngine } = await import('@/lib/cornerstone/setup');
+      const renderingEngine = getRenderingEngine();
+      const viewport = renderingEngine.getViewport(viewportId);
+      if (viewport) {
+        viewport.resetCamera();
+        viewport.render();
+      }
+    } catch (error) {
+      console.error('[AnnotationWorkspace] Failed to center image:', error);
+    }
+  }, [activeLayout, activeViewportId]);
+
+  // Handle interpolation apply - uses the smart tools store to trigger interpolation
+  const handleApplyInterpolation = useCallback(async () => {
+    console.log('[AnnotationWorkspace] Applying interpolation...');
+    
+    // Import and execute interpolation through the store
+    const { useSmartToolStore, interpolateSlices, canvasAnnotationsToSliceAnnotations } = await import('@/lib/smartTools');
+    const { useCanvasAnnotationStore } = await import('@/features/annotation');
+    
+    const store = useSmartToolStore.getState();
+    const canvasStore = useCanvasAnnotationStore.getState();
+    const { interpolationConfig, setProcessing, setResult, setError } = store;
+    const { annotations: canvasAnnotations, setAnnotations } = canvasStore;
+    
+    setProcessing(true);
+    setError(null);
+    
+    try {
+      // Convert canvas annotations to slice annotations
+      const annotationsMap = new Map<number, Array<{ pointsWorld: Array<[number, number, number]>; completed?: boolean }>>();
+      
+      canvasAnnotations.forEach((anns, key) => {
+        const sliceIndex = typeof key === 'number' ? key : parseInt(String(key), 10);
+        if (!isNaN(sliceIndex)) {
+          const converted = anns
+            .filter(ann => 'pointsWorld' in ann && Array.isArray((ann as { pointsWorld?: unknown }).pointsWorld))
+            .map(ann => ({
+              pointsWorld: (ann as { pointsWorld: Array<[number, number, number]> }).pointsWorld,
+              completed: 'completed' in ann ? (ann as { completed?: boolean }).completed : true,
+            }));
+          annotationsMap.set(sliceIndex, converted);
+        }
+      });
+
+      const sliceAnnotations = canvasAnnotationsToSliceAnnotations(annotationsMap);
+
+      if (sliceAnnotations.length < 2) {
+        throw new Error('Need at least 2 annotated slices for interpolation');
+      }
+
+      // Calculate Z coordinates for slices
+      const sliceZCoords = new Map<number, number>();
+      for (let i = 0; i < imageIds.length; i++) {
+        sliceZCoords.set(i, i);
+      }
+
+      // Execute interpolation
+      const result = interpolateSlices(sliceAnnotations, interpolationConfig, sliceZCoords);
+
+      console.log('[AnnotationWorkspace] Interpolation result:', result);
+      setResult(result);
+
+      // Add interpolated annotations to canvas store
+      for (const slice of result.sliceAnnotations) {
+        const key = String(slice.sliceIndex);
+        const existing = canvasAnnotations.get(key) || [];
+        
+        // Only add if this slice was interpolated (not a key frame)
+        const isKeyFrame = sliceAnnotations.some(s => s.sliceIndex === slice.sliceIndex);
+        if (!isKeyFrame) {
+          const newAnnotations = slice.contours.map((contour, idx) => ({
+            id: `interpolated-${slice.sliceIndex}-${idx}-${Date.now()}`,
+            type: 'freehand' as const,
+            pointsWorld: contour.points,
+            completed: true,
+            color: 'rgba(100, 200, 255, 0.4)', // Different color for interpolated
+          }));
+          setAnnotations(key, [...existing, ...newAnnotations]);
+        }
+      }
+      
+      console.log('[AnnotationWorkspace] Interpolation complete:', result.interpolatedCount, 'slices interpolated');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Interpolation failed';
+      console.error('[AnnotationWorkspace] Interpolation error:', message);
+      setError(message);
+    } finally {
+      setProcessing(false);
+    }
+  }, [imageIds.length]);
+
   // Handle image navigation
   const handleImageRendered = useCallback(
     (index: number) => {
@@ -374,6 +560,9 @@ export default function AnnotationWorkspace({
 
   // Error state
   if (initError || studyError) {
+    const errorMessage = initError?.message || 
+      (studyError && 'message' in studyError ? studyError.message : null) || 
+      'Failed to load study. Please try again.';
     return (
       <div
         className={cn('flex items-center justify-center h-full bg-[#0D1117]', className)}
@@ -382,7 +571,7 @@ export default function AnnotationWorkspace({
         <Alert variant="destructive" className="max-w-md">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            {initError?.message || (studyError as any)?.message || 'Failed to load study. Please try again.'}
+            {errorMessage}
           </AlertDescription>
         </Alert>
       </div>
@@ -436,7 +625,34 @@ export default function AnnotationWorkspace({
         onSubmit={onSubmit}
         activeLayout={activeLayout}
         onLayoutChange={setActiveLayout}
+        onSmartToolChange={handleSmartToolChange}
+        onToggleOverlay={handleToggleOverlay}
+        onToggleMPR={handleToggleMPR}
+        showOverlay={showOverlay}
+        showMPR={showMPR}
+        onInvert={handleToggleInvert}
+        isInverted={isInverted}
       />
+
+      {/* Smart Tools Panel */}
+      {showSmartToolsPanel && activeSmartTool !== 'none' && (
+        <SmartToolsPanel
+          activeTool={activeSmartTool}
+          onClose={() => {
+            setSmartTool('none');
+            setShowSmartToolsPanel(false);
+          }}
+          onApply={handleApplyInterpolation}
+        />
+      )}
+
+      {/* AI Segmentation Panel */}
+      {isAIActive && (
+        <AISegmentationPanel
+          onClose={() => setAIActive(false)}
+          onExecute={executeSegmentation}
+        />
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
@@ -456,6 +672,14 @@ export default function AnnotationWorkspace({
               <div className="absolute inset-0 flex items-center justify-center bg-black">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
+            ) : showMPR ? (
+              /* MPR Layout - Three orthogonal views */
+              <MPRLayout
+                imageIds={imageIds}
+                renderingEngineId={RENDERING_ENGINE_ID}
+                onClose={() => setShowMPR(false)}
+                className="h-full"
+              />
             ) : isMultiViewport ? (
               /* Multi-viewport grid layout */
               <ViewportGrid
@@ -465,6 +689,7 @@ export default function AnnotationWorkspace({
                 onViewportActivate={handleViewportActivate}
                 onImageRendered={handleGridImageRendered}
                 className="h-full"
+                isInverted={isInverted}
               />
             ) : (
               /* Single viewport layout */
@@ -475,6 +700,8 @@ export default function AnnotationWorkspace({
                   onImageRendered={handleImageRendered}
                   className="h-full"
                   useNativeSegmentation={false}
+                  showOverlay={showOverlay}
+                  isInverted={isInverted}
                 />
 
                 {/* Viewport Label */}
@@ -522,6 +749,10 @@ export default function AnnotationWorkspace({
           zoom={zoom}
           studyInstanceUID={studyInstanceUID}
           seriesInstanceUID={selectedSeriesUID || undefined}
+          onResetView={handleResetView}
+          onToggleRuler={handleToggleRuler}
+          onCenterImage={handleCenterImage}
+          onToolChange={handleToolChange}
         />
       </div>
     </div>

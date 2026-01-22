@@ -109,12 +109,16 @@ export default function NativeSegmentationOverlay({
   useEffect(() => {
     if (!isInitialized || !csToolsRef.current) return;
 
-    try {
-      const { setBrushProperties } = require('@/lib/cornerstone/setup');
-      setBrushProperties(undefined, { brushSize: brushRadius });
-    } catch (error) {
-      console.warn('[NativeSegmentation] Could not set brush size:', error);
-    }
+    const updateBrushSize = async () => {
+      try {
+        const { setBrushProperties } = await import('@/lib/cornerstone/setup');
+        setBrushProperties(undefined, { brushSize: brushRadius });
+      } catch (error) {
+        console.warn('[NativeSegmentation] Could not set brush size:', error);
+      }
+    };
+    
+    updateBrushSize();
   }, [brushRadius, isInitialized]);
 
   // Activate/deactivate tools based on activeTool prop

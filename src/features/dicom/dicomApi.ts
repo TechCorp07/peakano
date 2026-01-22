@@ -141,7 +141,7 @@ export const dicomApi = createApi({
 
     // Get WADO-RS metadata for instances
     getInstanceMetadata: builder.query<
-      Record<string, any>,
+      Record<string, unknown>,
       { studyInstanceUID: string; seriesInstanceUID: string; sopInstanceUID: string }
     >({
       query: ({ studyInstanceUID, seriesInstanceUID, sopInstanceUID }) =>

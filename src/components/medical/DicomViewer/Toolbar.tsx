@@ -7,7 +7,6 @@
 
 import { useCallback } from 'react';
 import {
-  MousePointer2,
   Move,
   ZoomIn,
   Ruler,

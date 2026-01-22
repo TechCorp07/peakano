@@ -6,7 +6,7 @@
  * Supports layouts: 1x1, 1x2, 2x1, 2x2, 1x3, 3x1, 2x3, 3x3
  */
 
-import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { ViewportLayoutType, ViewportCellConfig } from '@/lib/cornerstone/types';
 import { LAYOUT_CONFIGS } from '@/lib/cornerstone/types';
@@ -27,6 +27,8 @@ export interface ViewportGridProps {
   className?: string;
   /** Show overlay info on viewports */
   showOverlay?: boolean;
+  /** Invert the image colors */
+  isInverted?: boolean;
 }
 
 export default function ViewportGrid({
@@ -37,6 +39,7 @@ export default function ViewportGrid({
   onImageRendered,
   className,
   showOverlay = true,
+  isInverted = false,
 }: ViewportGridProps) {
   const layoutConfig = LAYOUT_CONFIGS[layout];
   const totalCells = layoutConfig.rows * layoutConfig.cols;
@@ -110,6 +113,7 @@ export default function ViewportGrid({
                   imageIds={cellConfig.imageIds}
                   onImageRendered={handleImageRendered(effectiveViewportId)}
                   showOverlay={showOverlay}
+                  isInverted={isInverted}
                   className="w-full h-full"
                 />
                 {/* Series label overlay */}
@@ -146,41 +150,33 @@ export default function ViewportGrid({
 export function useViewportGridState(initialLayout: ViewportLayoutType = '1x1') {
   const [layout, setLayout] = useState<ViewportLayoutType>(initialLayout);
   const [activeViewportId, setActiveViewportId] = useState<string>('viewport-0');
-  const [cells, setCells] = useState<ViewportCellConfig[]>([]);
+  const [cellsData, setCellsData] = useState<Map<number, Omit<ViewportCellConfig, 'viewportId'>>>(new Map());
 
   const layoutConfig = LAYOUT_CONFIGS[layout];
   const totalCells = layoutConfig.rows * layoutConfig.cols;
 
-  // Update cells when layout changes
-  useEffect(() => {
-    setCells((prev) => {
-      // Keep existing cells, add empty ones if needed
-      const newCells = [...prev];
-      while (newCells.length < totalCells) {
-        newCells.push({
-          viewportId: `viewport-${newCells.length}`,
-          imageIds: [],
-        });
-      }
-      // Trim if we have too many
-      return newCells.slice(0, totalCells);
-    });
-  }, [totalCells]);
+  // Derive cells from cellsData using useMemo (avoids setState in useEffect)
+  const cells = useMemo(() => {
+    const result: ViewportCellConfig[] = [];
+    for (let i = 0; i < totalCells; i++) {
+      const data = cellsData.get(i);
+      result.push({
+        viewportId: `viewport-${i}`,
+        imageIds: data?.imageIds ?? [],
+        label: data?.label,
+        seriesInstanceUID: data?.seriesInstanceUID,
+      });
+    }
+    return result;
+  }, [totalCells, cellsData]);
 
   // Set image IDs for a specific cell
   const setCellImageIds = useCallback(
     (index: number, imageIds: string[], label?: string, seriesInstanceUID?: string) => {
-      setCells((prev) => {
-        const newCells = [...prev];
-        if (index < newCells.length) {
-          newCells[index] = {
-            ...newCells[index],
-            imageIds,
-            label,
-            seriesInstanceUID,
-          };
-        }
-        return newCells;
+      setCellsData((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(index, { imageIds, label, seriesInstanceUID });
+        return newMap;
       });
     },
     []
@@ -188,30 +184,16 @@ export function useViewportGridState(initialLayout: ViewportLayoutType = '1x1') 
 
   // Clear a specific cell
   const clearCell = useCallback((index: number) => {
-    setCells((prev) => {
-      const newCells = [...prev];
-      if (index < newCells.length) {
-        newCells[index] = {
-          ...newCells[index],
-          imageIds: [],
-          label: undefined,
-          seriesInstanceUID: undefined,
-        };
-      }
-      return newCells;
+    setCellsData((prev) => {
+      const newMap = new Map(prev);
+      newMap.delete(index);
+      return newMap;
     });
   }, []);
 
   // Clear all cells
   const clearAllCells = useCallback(() => {
-    setCells((prev) =>
-      prev.map((cell) => ({
-        ...cell,
-        imageIds: [],
-        label: undefined,
-        seriesInstanceUID: undefined,
-      }))
-    );
+    setCellsData(new Map());
   }, []);
 
   return {

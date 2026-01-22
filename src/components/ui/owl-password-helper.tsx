@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 
 type OwlState = 'idle' | 'mismatch' | 'match';
 
@@ -21,37 +21,53 @@ interface OwlPasswordHelperProps {
  * - match: Success state when passwords match
  */
 export function OwlPasswordHelper({ password, confirmPassword, show = true }: OwlPasswordHelperProps) {
-  const [state, setState] = useState<OwlState>('idle');
   const [isAnimating, setIsAnimating] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
+  const [delayedShow, setDelayedShow] = useState(show);
+  
+  // Track previous values to detect changes
+  const prevShowRef = useRef(show);
+  const prevStateRef = useRef<OwlState>('idle');
+
+  // Derive state from props using useMemo (avoids setState in effect)
+  const state = useMemo<OwlState>(() => {
+    if (!confirmPassword || confirmPassword.length === 0) {
+      return 'idle';
+    }
+    return password === confirmPassword ? 'match' : 'mismatch';
+  }, [password, confirmPassword]);
 
   // Handle visibility with a slight delay for smooth animation
+  // Using requestAnimationFrame for deferred state update
   useEffect(() => {
-    if (show) {
-      // Small delay before showing to allow for smooth entrance
-      const timer = setTimeout(() => setIsVisible(true), 50);
-      return () => clearTimeout(timer);
-    } else {
-      setIsVisible(false);
+    if (show !== prevShowRef.current) {
+      prevShowRef.current = show;
+      if (show) {
+        // Small delay before showing to allow for smooth entrance
+        const timer = setTimeout(() => {
+          requestAnimationFrame(() => setDelayedShow(true));
+        }, 50);
+        return () => clearTimeout(timer);
+      } else {
+        requestAnimationFrame(() => setDelayedShow(false));
+      }
     }
   }, [show]);
 
+  // Trigger animation when match state is achieved
   useEffect(() => {
-    if (!confirmPassword || confirmPassword.length === 0) {
-      setState('idle');
-      return;
-    }
-
-    if (password === confirmPassword) {
-      setState('match');
-      // Trigger happy animation
-      setIsAnimating(true);
-      const timer = setTimeout(() => setIsAnimating(false), 600);
+    if (state === 'match' && prevStateRef.current !== 'match') {
+      prevStateRef.current = state;
+      requestAnimationFrame(() => setIsAnimating(true));
+      const timer = setTimeout(() => {
+        requestAnimationFrame(() => setIsAnimating(false));
+      }, 600);
       return () => clearTimeout(timer);
-    } else {
-      setState('mismatch');
     }
-  }, [password, confirmPassword]);
+    prevStateRef.current = state;
+  }, [state]);
+
+  // Derived visibility state
+  const isVisible = show && delayedShow;
 
   // Don't render if not shown
   if (!show) {

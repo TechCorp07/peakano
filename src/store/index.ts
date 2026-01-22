@@ -1,6 +1,12 @@
 import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import { authReducer, authApi } from '@/features/auth';
 import { dicomReducer, dicomApi } from '@/features/dicom';
+import { usersApi } from '@/features/users';
+import { analyticsApi } from '@/features/analytics';
+import { lmsApi } from '@/features/lms';
+import { assessmentsApi } from '@/features/assessments';
+import { dashboardApi } from '@/features/dashboard';
+import { annotationTasksApi } from '@/features/annotationTasks';
 
 /**
  * Root reducer combining all slices
@@ -14,6 +20,12 @@ const rootReducer = combineReducers({
   // RTK Query API reducers
   [authApi.reducerPath]: authApi.reducer,
   [dicomApi.reducerPath]: dicomApi.reducer,
+  [usersApi.reducerPath]: usersApi.reducer,
+  [analyticsApi.reducerPath]: analyticsApi.reducer,
+  [lmsApi.reducerPath]: lmsApi.reducer,
+  [assessmentsApi.reducerPath]: assessmentsApi.reducer,
+  [dashboardApi.reducerPath]: dashboardApi.reducer,
+  [annotationTasksApi.reducerPath]: annotationTasksApi.reducer,
 });
 
 /**
@@ -31,7 +43,13 @@ export const makeStore = () => {
       }).concat(
         // Add RTK Query middleware
         authApi.middleware,
-        dicomApi.middleware
+        dicomApi.middleware,
+        usersApi.middleware,
+        analyticsApi.middleware,
+        lmsApi.middleware,
+        assessmentsApi.middleware,
+        dashboardApi.middleware,
+        annotationTasksApi.middleware
       ),
     devTools: process.env.NODE_ENV !== 'production',
   });

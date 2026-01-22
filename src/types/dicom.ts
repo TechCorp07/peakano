@@ -69,6 +69,14 @@ export interface Instance {
 }
 
 /**
+ * Instance with optional URL properties (used during loading)
+ */
+export interface InstanceWithUrls extends Instance {
+  _staticUrl?: string;
+  _localUrl?: string;
+}
+
+/**
  * Study with series included
  */
 export interface StudyWithSeries extends Study {
@@ -80,6 +88,20 @@ export interface StudyWithSeries extends Study {
  */
 export interface SeriesWithInstances extends Series {
   instances: Instance[];
+}
+
+/**
+ * Series with instances that may have URLs
+ */
+export interface SeriesWithInstanceUrls extends Series {
+  instances: InstanceWithUrls[];
+}
+
+/**
+ * Study with series that may have URL instances
+ */
+export interface StudyWithSeriesUrls extends Study {
+  series: SeriesWithInstanceUrls[];
 }
 
 /**
@@ -198,3 +220,108 @@ export const initialDicomState: DicomState = {
   imageLoadingProgress: 0,
   isLoadingImages: false,
 };
+
+/**
+ * Extended study type that may include series
+ */
+export interface StudyMayHaveSeries extends Study {
+  series?: SeriesWithInstances[];
+}
+
+/**
+ * Study filter key type for type-safe filter updates
+ */
+export type StudyFilterKey = keyof StudyFilters;
+
+/**
+ * Cornerstone Window Extension
+ * Extends Window interface to include Cornerstone global references
+ */
+declare global {
+  interface Window {
+    __cornerstoneCore?: typeof import('@cornerstonejs/core');
+    __cornerstoneWadouriFileManager?: {
+      add: (file: File) => string;
+      get: (id: string) => File | undefined;
+      remove: (id: string) => void;
+      purge: () => void;
+    };
+  }
+}
+
+/**
+ * Cornerstone Viewport with optional image property
+ */
+export interface CornerstoneViewportWithImage {
+  csImage?: {
+    imageId: string;
+    minPixelValue?: number;
+    maxPixelValue?: number;
+    windowCenter?: number;
+    windowWidth?: number;
+    [key: string]: unknown;
+  };
+  getProperties?: () => {
+    voiRange?: { lower: number; upper: number };
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Cornerstone Annotation Event
+ */
+export interface CornerstoneAnnotationEvent {
+  detail?: {
+    annotation?: {
+      annotationUID: string;
+      data: {
+        handles?: {
+          points?: Array<{ x: number; y: number; z?: number }>;
+          textBox?: { worldPosition: number[] };
+        };
+        cachedStats?: Record<string, unknown>;
+        text?: string;
+        label?: string;
+      };
+      metadata?: {
+        toolName?: string;
+        viewportId?: string;
+        referencedImageId?: string;
+      };
+      isVisible?: boolean;
+      isLocked?: boolean;
+    };
+    viewportId?: string;
+    element?: HTMLElement;
+  };
+}
+
+/**
+ * Cornerstone Tools module type
+ */
+export interface CornerstoneToolsModule {
+  annotation: {
+    state: {
+      getAnnotations: (
+        toolName: string,
+        element?: HTMLElement
+      ) => Array<{
+        annotationUID: string;
+        data: Record<string, unknown>;
+        metadata?: Record<string, unknown>;
+      }>;
+      addAnnotation: (annotation: unknown, element?: HTMLElement) => void;
+      removeAnnotation: (annotationUID: string) => void;
+    };
+  };
+  Enums: {
+    Events: {
+      ANNOTATION_ADDED: string;
+      ANNOTATION_MODIFIED: string;
+      ANNOTATION_REMOVED: string;
+      ANNOTATION_COMPLETED: string;
+    };
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}

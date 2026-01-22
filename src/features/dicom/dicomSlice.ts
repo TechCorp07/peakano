@@ -69,13 +69,14 @@ const dicomSlice = createSlice({
 
     updateFilter: (
       state,
-      action: PayloadAction<{ key: keyof StudyFilters; value: any }>
+      action: PayloadAction<{ key: keyof StudyFilters; value: StudyFilters[keyof StudyFilters] }>
     ) => {
       const { key, value } = action.payload;
       if (value === undefined || value === '' || value === null) {
         delete state.filters[key];
       } else {
-        (state.filters as any)[key] = value;
+        // Type-safe filter update using spread
+        state.filters = { ...state.filters, [key]: value };
       }
       state.currentPage = 1;
     },

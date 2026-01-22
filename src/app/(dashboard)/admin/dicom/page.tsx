@@ -204,13 +204,16 @@ export default function AdminDicomPage() {
   const handleFileSelect = useCallback((selectedFiles: FileList | null) => {
     if (!selectedFiles) return;
 
+    const validExtensions = ['.dcm', '.dicom', '.png', '.jpg', '.jpeg', '.tiff', '.tif', '.nii', '.nii.gz'];
+    const validMimeTypes = ['application/dicom', 'image/png', 'image/jpeg', 'image/tiff'];
+
     const newFiles: UploadedFile[] = Array.from(selectedFiles)
       .filter((file) => {
         const name = file.name.toLowerCase();
-        return name.endsWith('.dcm') ||
-          name.endsWith('.dicom') ||
-          file.type === 'application/dicom' ||
-          !name.includes('.'); // DICOM files often have no extension
+        const hasValidExtension = validExtensions.some(ext => name.endsWith(ext));
+        const hasValidMimeType = validMimeTypes.includes(file.type);
+        const hasNoExtension = !name.includes('.'); // DICOM files often have no extension
+        return hasValidExtension || hasValidMimeType || hasNoExtension;
       })
       .map((file) => ({
         file,
@@ -219,7 +222,7 @@ export default function AdminDicomPage() {
 
     if (newFiles.length === 0 && selectedFiles.length > 0) {
       // Show error if no valid files
-      alert('Please select valid DICOM files (.dcm extension or DICOM format)');
+      alert('Please select valid image files (DICOM, PNG, JPG, JPEG, TIFF, or NIfTI)');
       return;
     }
 
@@ -427,50 +430,62 @@ export default function AdminDicomPage() {
   const processingCount = files.filter((f) => f.status === 'processing').length;
 
   return (
-    <div className="p-6">
+    <div className="min-h-screen bg-[#0D1117] p-8">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[#E6EDF3]">DICOM Management</h1>
-        <p className="text-sm text-[#8B949E] mt-1">
-          Upload and manage DICOM studies
+      <div className="mb-10">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/30 to-teal-500/20 border border-emerald-500/30">
+            <ImageIcon className="h-8 w-8 text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-emerald-400 uppercase tracking-wider">
+              Administration
+            </p>
+            <h1 className="text-4xl font-black text-[#E6EDF3] tracking-tight">Image Management</h1>
+          </div>
+        </div>
+        <p className="text-lg text-[#8B949E] font-medium mt-2">
+          Upload, organize, and manage medical imaging studies (DICOM, PNG, JPG, TIFF)
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Upload Section */}
-        <div className="bg-[#161B22] rounded-lg border border-[#30363D]">
-          <div className="px-4 py-3 border-b border-[#30363D]">
-            <h2 className="text-base font-semibold text-[#E6EDF3] flex items-center gap-2">
-              <Upload className="h-5 w-5 text-primary" />
-              Upload DICOM Files
+        <div className="bg-gradient-to-br from-[#161B22] via-[#1a2035] to-[#161B22] rounded-2xl border-2 border-emerald-500/30 shadow-xl overflow-hidden">
+          <div className="px-6 py-5 border-b-2 border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 to-transparent">
+            <h2 className="text-xl font-bold text-[#E6EDF3] flex items-center gap-3 tracking-tight">
+              <Upload className="h-6 w-6 text-emerald-400" />
+              Upload Medical Images
             </h2>
           </div>
-          <div className="p-4">
+          <div className="p-6">
             {/* Drop zone */}
             <div
               className={cn(
-                'border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer',
+                'border-2 border-dashed rounded-2xl p-10 text-center transition-all cursor-pointer',
                 isDragOver
-                  ? 'border-primary bg-primary/10'
-                  : 'border-[#30363D] hover:border-[#58A6FF]/50'
+                  ? 'border-emerald-400 bg-emerald-500/15 shadow-inner shadow-emerald-500/20'
+                  : 'border-emerald-500/40 hover:border-emerald-400/60 hover:bg-emerald-500/5'
               )}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
             >
-              <FileUp className="h-10 w-10 text-[#6E7681] mx-auto mb-4" />
-              <p className="text-sm text-[#8B949E]">
-                Drag and drop DICOM files here, or{' '}
-                <span className="text-primary font-medium">browse</span>
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/10 w-fit mx-auto mb-5">
+                <FileUp className="h-12 w-12 text-emerald-400" />
+              </div>
+              <p className="text-base text-[#E6EDF3] font-medium mb-2">
+                Drag and drop files here, or{' '}
+                <span className="text-emerald-400 font-semibold">browse</span>
               </p>
-              <p className="text-xs text-[#6E7681] mt-2">
-                Supports .dcm files and DICOM folders
+              <p className="text-sm text-[#6E7681]">
+                Supports DICOM (.dcm), PNG, JPG, JPEG, TIFF, and NIfTI files
               </p>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".dcm,.dicom,application/dicom"
+                accept=".dcm,.dicom,.png,.jpg,.jpeg,.tiff,.tif,.nii,.nii.gz,application/dicom,image/png,image/jpeg,image/tiff"
                 multiple
                 className="hidden"
                 onChange={(e) => handleFileSelect(e.target.files)}
@@ -479,9 +494,9 @@ export default function AdminDicomPage() {
 
             {/* Processing status */}
             {processingStatus && (
-              <Alert className="mt-4 border-primary/50 bg-primary/10">
-                <ImageIcon className="h-4 w-4 text-primary" />
-                <AlertDescription className="text-primary text-sm">
+              <Alert className="mt-5 border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 to-transparent rounded-xl">
+                <ImageIcon className="h-5 w-5 text-emerald-400" />
+                <AlertDescription className="text-emerald-400 text-sm font-medium">
                   {processingStatus}
                 </AlertDescription>
               </Alert>
@@ -489,9 +504,9 @@ export default function AdminDicomPage() {
 
             {/* File list */}
             {files.length > 0 && (
-              <div className="mt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-[#E6EDF3]">
+              <div className="mt-5">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-base font-semibold text-[#E6EDF3]">
                     Files ({files.length})
                   </span>
                   {successCount > 0 && (
@@ -499,44 +514,44 @@ export default function AdminDicomPage() {
                       variant="ghost"
                       size="sm"
                       onClick={clearCompleted}
-                      className="text-[#8B949E] hover:text-white hover:bg-white/5"
+                      className="text-[#8B949E] hover:text-emerald-400 hover:bg-emerald-500/10 rounded-lg"
                     >
                       Clear completed
                     </Button>
                   )}
                 </div>
 
-                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2">
                   {files.map((f, index) => (
                     <div
                       key={`${f.file.name}-${index}`}
-                      className="flex items-center gap-2 p-2 bg-[#0D1117] rounded-md border border-[#21262D]"
+                      className="flex items-center gap-3 p-3 bg-[#0D1117] rounded-xl border-2 border-slate-700/40 hover:border-slate-600/50 transition-colors"
                     >
                       {f.status === 'pending' && (
-                        <File className="w-4 h-4 text-[#6E7681]" />
+                        <File className="w-5 h-5 text-[#6E7681]" />
                       )}
                       {(f.status === 'uploading' || f.status === 'processing') && (
-                        <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                        <Loader2 className="w-5 h-5 text-emerald-400 animate-spin" />
                       )}
                       {f.status === 'success' && (
-                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <CheckCircle className="w-5 h-5 text-emerald-400" />
                       )}
                       {f.status === 'error' && (
-                        <AlertCircle className="w-4 h-4 text-destructive" />
+                        <AlertCircle className="w-5 h-5 text-rose-400" />
                       )}
 
-                      <span className="flex-1 text-sm text-[#E6EDF3] truncate">
+                      <span className="flex-1 text-sm font-medium text-[#E6EDF3] truncate">
                         {f.file.name}
                       </span>
 
-                      <span className="text-xs text-[#6E7681] font-mono">
+                      <span className="text-xs text-[#6E7681] font-mono bg-slate-800/50 px-2 py-1 rounded">
                         {(f.file.size / 1024).toFixed(1)} KB
                       </span>
 
                       {f.status === 'pending' && (
                         <button
                           onClick={() => removeFile(index)}
-                          className="text-[#6E7681] hover:text-destructive transition-colors"
+                          className="text-[#6E7681] hover:text-rose-400 transition-colors p-1"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -550,18 +565,18 @@ export default function AdminDicomPage() {
             {/* Upload button */}
             {pendingCount > 0 && (
               <Button
-                className="w-full mt-4 bg-primary hover:bg-primary/90"
+                className="w-full mt-5 h-12 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-semibold shadow-lg shadow-emerald-500/25 rounded-xl text-base"
                 onClick={handleUpload}
                 disabled={isUploading || processingCount > 0}
               >
                 {processingCount > 0 ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                     Processing...
                   </>
                 ) : (
                   <>
-                    <Upload className="h-4 w-4 mr-2" />
+                    <Upload className="h-5 w-5 mr-2" />
                     Process {pendingCount} file{pendingCount > 1 ? 's' : ''}
                   </>
                 )}
@@ -571,16 +586,16 @@ export default function AdminDicomPage() {
         </div>
 
         {/* Recent Studies */}
-        <div className="bg-[#161B22] rounded-lg border border-[#30363D]">
-          <div className="px-4 py-3 border-b border-[#30363D] flex items-center justify-between">
-            <h2 className="text-base font-semibold text-[#E6EDF3]">Studies</h2>
+        <div className="bg-gradient-to-br from-[#161B22] via-[#1a2035] to-[#161B22] rounded-2xl border-2 border-slate-700/50 shadow-xl overflow-hidden">
+          <div className="px-6 py-5 border-b-2 border-slate-700/50 flex items-center justify-between bg-[#0D1117]/30">
+            <h2 className="text-xl font-bold text-[#E6EDF3]">Studies</h2>
             <div className="flex items-center gap-2">
               {localStudies.length > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={clearAllLocalStudies}
-                  className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                  className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg"
                 >
                   Clear Local
                 </Button>
@@ -589,18 +604,18 @@ export default function AdminDicomPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => refetch()}
-                className="text-[#8B949E] hover:text-white hover:bg-white/5"
+                className="text-[#8B949E] hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg"
               >
                 <RefreshCw className="h-4 w-4" />
               </Button>
             </div>
           </div>
-          <div className="p-4">
+          <div className="p-6">
             {/* Local storage notice */}
             {localStudies.length > 0 && (
-              <Alert className="mb-4 border-green-500/50 bg-green-500/10">
-                <HardDrive className="h-4 w-4 text-green-400" />
-                <AlertDescription className="text-green-400 text-xs">
+              <Alert className="mb-5 border-emerald-500/40 bg-gradient-to-r from-emerald-500/15 to-transparent rounded-xl">
+                <HardDrive className="h-5 w-5 text-emerald-400" />
+                <AlertDescription className="text-emerald-400 text-sm font-medium">
                   {localStudies.length} study(ies) stored locally. Click &quot;View&quot; to open in viewer.
                 </AlertDescription>
               </Alert>
@@ -608,69 +623,78 @@ export default function AdminDicomPage() {
 
             {/* Mock data notice */}
             {isUsingMockData && localStudies.length === 0 && (
-              <Alert className="mb-4 border-warning/50 bg-warning/10">
-                <AlertCircle className="h-4 w-4 text-warning" />
-                <AlertDescription className="text-warning text-xs">
-                  Showing demo data. Upload DICOM files to see your own studies.
+              <Alert className="mb-5 border-amber-500/40 bg-gradient-to-r from-amber-500/15 to-transparent rounded-xl">
+                <AlertCircle className="h-5 w-5 text-amber-400" />
+                <AlertDescription className="text-amber-400 text-sm font-medium">
+                  Showing demo data. Upload medical images to see your own studies.
                 </AlertDescription>
               </Alert>
             )}
 
             {studiesLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
               </div>
             ) : displayStudies.length > 0 ? (
-              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              <div className="space-y-3 max-h-[420px] overflow-y-auto pr-2">
                 {displayStudies.map((study) => {
                   const isLocalStudy = 'isLocal' in study && (study as LocalStudy).isLocal === true;
                   return (
                     <div
                       key={study.studyInstanceUID}
-                      className="flex items-center justify-between p-3 bg-[#0D1117] rounded-lg border border-[#21262D] hover:border-[#30363D] transition-colors"
+                      className="relative overflow-hidden flex items-center justify-between p-4 bg-[#0D1117] rounded-xl border-2 border-slate-700/40 hover:border-slate-600/50 transition-all group"
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
+                      {/* Left accent bar */}
+                      <div className={cn(
+                        "absolute left-0 top-0 bottom-0 w-1.5 rounded-l-xl",
+                        study.modality === 'CT' && 'bg-gradient-to-b from-blue-400 to-blue-600',
+                        study.modality === 'MR' && 'bg-gradient-to-b from-teal-400 to-teal-600',
+                        study.modality === 'XR' && 'bg-gradient-to-b from-amber-400 to-amber-600',
+                        !['CT', 'MR', 'XR'].includes(study.modality) && 'bg-gradient-to-b from-slate-400 to-slate-600'
+                      )} />
+                      
+                      <div className="flex-1 min-w-0 pl-3">
+                        <div className="flex items-center gap-2 mb-1">
                           {isLocalStudy ? (
-                            <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-green-500/20 text-green-400">
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                               LOCAL
                             </span>
                           ) : null}
                           <span className={cn(
-                            'text-xs font-medium px-1.5 py-0.5 rounded',
-                            study.modality === 'CT' && 'bg-blue-500/20 text-blue-400',
-                            study.modality === 'MR' && 'bg-purple-500/20 text-purple-400',
-                            study.modality === 'XR' && 'bg-amber-500/20 text-amber-400',
-                            !['CT', 'MR', 'XR'].includes(study.modality) && 'bg-[#30363D] text-[#8B949E]'
+                            'text-xs font-semibold px-2 py-0.5 rounded-md border',
+                            study.modality === 'CT' && 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+                            study.modality === 'MR' && 'bg-teal-500/20 text-teal-400 border-teal-500/30',
+                            study.modality === 'XR' && 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+                            !['CT', 'MR', 'XR'].includes(study.modality) && 'bg-slate-500/20 text-slate-400 border-slate-500/30'
                           )}>
                             {study.modality}
                           </span>
-                          <span className="text-sm font-medium text-[#E6EDF3] truncate">
+                          <span className="text-base font-semibold text-[#E6EDF3] truncate group-hover:text-cyan-400 transition-colors">
                             {study.patientName || 'Unknown'}
                           </span>
                         </div>
-                        <p className="text-xs text-[#6E7681] mt-1">
+                        <p className="text-sm text-[#6E7681]">
                           {study.studyDescription || 'No description'} - {study.numberOfInstances} image{study.numberOfInstances !== 1 ? 's' : ''}
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2">
                         <Link href={`/viewer/${study.studyInstanceUID}`}>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-[#8B949E] hover:text-white hover:bg-white/5"
+                            className="h-10 w-10 text-[#8B949E] hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg"
                           >
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-5 w-5" />
                           </Button>
                         </Link>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          className="h-10 w-10 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg"
                           onClick={() => handleDeleteStudy(study.studyInstanceUID, isLocalStudy)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-5 w-5" />
                         </Button>
                       </div>
                     </div>
@@ -678,18 +702,19 @@ export default function AdminDicomPage() {
                 })}
               </div>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-sm text-[#8B949E]">No studies found</p>
-                <p className="text-xs text-[#6E7681] mt-1">Upload DICOM files to get started</p>
+              <div className="text-center py-12">
+                <ImageIcon className="h-16 w-16 text-[#30363D] mx-auto mb-4" />
+                <p className="text-lg font-semibold text-[#E6EDF3]">No studies found</p>
+                <p className="text-sm text-[#6E7681] mt-2">Upload medical images to get started</p>
               </div>
             )}
 
             {studiesData?.total && studiesData.total > 10 && (
-              <div className="mt-4 pt-4 border-t border-[#30363D]">
+              <div className="mt-5 pt-5 border-t-2 border-slate-700/50">
                 <Link href="/studies">
                   <Button
                     variant="outline"
-                    className="w-full bg-[#21262D] border-[#30363D] text-[#8B949E] hover:text-white hover:bg-[#30363D]"
+                    className="w-full h-11 bg-[#0D1117] border-2 border-slate-700/50 text-[#8B949E] hover:text-cyan-400 hover:border-cyan-500/50 rounded-xl font-medium"
                     size="sm"
                   >
                     View All Studies ({studiesData.total})
@@ -702,15 +727,34 @@ export default function AdminDicomPage() {
       </div>
 
       {/* Instructions */}
-      <div className="mt-6 bg-[#161B22] rounded-lg border border-[#30363D] p-4">
-        <h3 className="text-sm font-semibold text-[#E6EDF3] mb-2">How to use:</h3>
-        <ol className="text-xs text-[#8B949E] space-y-1 list-decimal list-inside">
-          <li>Upload DICOM files (.dcm) using drag-and-drop or the file browser</li>
-          <li>Files will be processed and stored locally in your browser</li>
-          <li>Click the &quot;View&quot; button (eye icon) to open a study in the DICOM viewer</li>
-          <li>Local studies persist across page refreshes until you clear them</li>
-          <li>For production use, connect to a DICOM backend server (PACS)</li>
-        </ol>
+      <div className="mt-8 bg-gradient-to-br from-[#161B22] via-[#1a2035] to-[#161B22] rounded-2xl border-2 border-slate-700/50 p-6 shadow-lg">
+        <h3 className="text-lg font-bold text-[#E6EDF3] mb-4 flex items-center gap-2">
+          <HardDrive className="h-5 w-5 text-cyan-400" />
+          How to use
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="p-4 bg-[#0D1117] rounded-xl border border-slate-700/40">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm font-bold">1</span>
+              <span className="text-sm font-semibold text-[#E6EDF3]">Upload Files</span>
+            </div>
+            <p className="text-xs text-[#6E7681]">Drag and drop or browse for medical images (DICOM, PNG, JPG, TIFF)</p>
+          </div>
+          <div className="p-4 bg-[#0D1117] rounded-xl border border-slate-700/40">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="w-7 h-7 rounded-lg bg-teal-500/20 text-teal-400 flex items-center justify-center text-sm font-bold">2</span>
+              <span className="text-sm font-semibold text-[#E6EDF3]">Process & Store</span>
+            </div>
+            <p className="text-xs text-[#6E7681]">Files are processed and stored locally in your browser</p>
+          </div>
+          <div className="p-4 bg-[#0D1117] rounded-xl border border-slate-700/40">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-sm font-bold">3</span>
+              <span className="text-sm font-semibold text-[#E6EDF3]">View & Annotate</span>
+            </div>
+            <p className="text-xs text-[#6E7681]">Click the view button to open studies in the image viewer</p>
+          </div>
+        </div>
       </div>
     </div>
   );

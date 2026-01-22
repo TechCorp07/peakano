@@ -19,6 +19,7 @@ import { createWadoRsImageIds } from '@/lib/cornerstone/setup';
 import { siteConfig } from '@/config/site';
 import { cn } from '@/lib/utils';
 import type { ToolType } from '@/lib/cornerstone/types';
+import type { StudyWithSeriesUrls } from '@/types/dicom';
 
 import Viewport from './Viewport';
 import Toolbar from './Toolbar';
@@ -199,7 +200,7 @@ export default function DicomViewer({
           <div className="w-72 flex-shrink-0 border-r border-slate-700 overflow-y-auto p-3 space-y-3">
             {/* Series Selector */}
             <SeriesSelector
-              series={(study as any)?.series || []}
+              series={(study as StudyWithSeriesUrls | null)?.series || []}
               selectedSeriesUID={selectedSeriesUID}
               onSelectSeries={handleSeriesSelect}
             />

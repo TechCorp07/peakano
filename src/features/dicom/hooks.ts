@@ -23,7 +23,7 @@ import {
   useGetSeriesDetailQuery,
   useGetStudiesQuery,
 } from './dicomApi';
-import type { Study, Series, Instance, StudyFilters, ViewportDisplayState, StudyWithSeries, SeriesWithInstances } from '@/types/dicom';
+import type { Study, Series, Instance, StudyFilters, ViewportDisplayState, StudyWithSeries, SeriesWithInstances, InstanceWithUrls, Modality } from '@/types/dicom';
 import type { ToolType } from '@/lib/cornerstone/types';
 import {
   getStudy as getStoredStudy,
@@ -39,6 +39,21 @@ import {
 
 // Local storage key - kept for backwards compatibility/migration
 const LOCAL_STUDIES_KEY = 'mri-platform-local-studies';
+
+/**
+ * Valid modality types
+ */
+const VALID_MODALITIES: Modality[] = ['CT', 'MR', 'XR', 'US', 'NM', 'PT', 'CR', 'DX', 'MG', 'OT'];
+
+/**
+ * Safely convert a string to Modality type, defaulting to 'OT' if invalid
+ */
+function toModality(value: string | undefined | null): Modality {
+  if (value && VALID_MODALITIES.includes(value as Modality)) {
+    return value as Modality;
+  }
+  return 'OT';
+}
 
 /**
  * Interface for local studies stored in localStorage
@@ -70,10 +85,14 @@ function getStaticStudyData(studyInstanceUID: string): { study: StudyWithSeries;
     const instances = getStaticInstancesForSeries(s.seriesInstanceUID);
     return {
       ...s,
-      instances: instances.map((inst) => ({
-        ...inst,
-        _staticUrl: (inst as any)._staticUrl,
-      })),
+      instances: instances.map((inst) => {
+        // Preserve the _staticUrl property from static instances
+        const instWithUrl = inst as InstanceWithUrls;
+        return {
+          ...inst,
+          _staticUrl: instWithUrl._staticUrl,
+        };
+      }),
     };
   });
 
@@ -142,7 +161,7 @@ async function getLocalStudyWithSeries(studyInstanceUID: string): Promise<{ stud
         studyInstanceUID,
         seriesNumber: 1,
         seriesDescription: storedStudy.studyDescription || 'Local Upload',
-        modality: storedStudy.modality as any,
+        modality: toModality(storedStudy.modality),
         bodyPart: null,
         numberOfInstances: instances.length,
         createdAt: storedStudy.createdAt,
@@ -160,7 +179,7 @@ async function getLocalStudyWithSeries(studyInstanceUID: string): Promise<{ stud
         patientName: storedStudy.patientName || 'Uploaded Patient',
         patientBirthDate: '',
         patientSex: '',
-        modality: storedStudy.modality as any,
+        modality: toModality(storedStudy.modality),
         numberOfSeries: 1,
         numberOfInstances: instances.length,
         createdAt: storedStudy.createdAt,
@@ -254,7 +273,7 @@ function createEmptyStudy(studyInstanceUID: string, metadata: Partial<Study>): S
     patientName: metadata.patientName || 'Unknown',
     patientBirthDate: '',
     patientSex: '',
-    modality: metadata.modality || 'OT' as any,
+    modality: metadata.modality || 'OT',
     numberOfSeries: 1,
     numberOfInstances: metadata.numberOfInstances || 0,
     createdAt: metadata.createdAt || new Date().toISOString(),
@@ -265,7 +284,7 @@ function createEmptyStudy(studyInstanceUID: string, metadata: Partial<Study>): S
       studyInstanceUID,
       seriesNumber: 1,
       seriesDescription: 'Expired',
-      modality: metadata.modality || 'OT' as any,
+      modality: metadata.modality || 'OT',
       bodyPart: null,
       numberOfInstances: 0,
       createdAt: metadata.createdAt || new Date().toISOString(),
@@ -731,7 +750,7 @@ export function useStudyList(initialFilters?: StudyFilters) {
   const { data, isLoading, error, refetch } = useGetStudiesQuery(queryFilters);
 
   const setFilter = useCallback(
-    (key: keyof StudyFilters, value: any) => {
+    (key: keyof StudyFilters, value: StudyFilters[keyof StudyFilters]) => {
       dispatch(updateFilter({ key, value }));
     },
     [dispatch]

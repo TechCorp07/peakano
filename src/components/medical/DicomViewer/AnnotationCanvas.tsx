@@ -29,6 +29,7 @@ import {
 } from 'react';
 import { cn } from '@/lib/utils';
 import { generateUUID } from '@/lib/utils/uuid';
+import { useAnnotationToolsStore, type MaskOperationType } from '@/lib/annotation/store';
 
 // === TYPES ===
 export type CanvasToolType = 'freehand' | 'brush' | 'eraser' | 'polygon' | 'none';
@@ -91,8 +92,7 @@ export interface CanvasAnnotation {
 }
 
 // === CONSTANTS ===
-const MASK_COLOR = 'rgb(144, 238, 144)';
-const MASK_OPACITY = 0.5;
+const MASK_COLOR = 'rgba(50, 205, 50, 0.6)';  // Lime green with 60% opacity
 const MIN_POINT_DISTANCE = 2;
 const IDLE_SAVE_MS = 8000;
 const PERIODIC_SAVE_MS = 120000;
@@ -266,6 +266,9 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
     const [displayIsActive, setDisplayIsActive] = useState(false);
     const [displayIsEraseMode, setDisplayIsEraseMode] = useState(false);
     const [currentBrushRadius, setCurrentBrushRadius] = useState(brushRadius);
+
+    // === MASK OPERATION MODE (from store) ===
+    const maskOperationMode = useAnnotationToolsStore((state) => state.maskOperationMode);
 
     // === DIRTY FLAGS (core of 280ms approach) ===
     const staticDirtyRef = useRef(false);
@@ -473,6 +476,66 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       // Use ref to always set on current imageIndex, avoiding stale closure issues
       annotationsRef.current.set(currentImageIndexRef.current, annotations);
     }, []);
+
+    /**
+     * Apply an annotation respecting the current mask operation mode
+     * - replace: Clear all existing annotations and add the new one
+     * - add/union: Append to existing annotations (default behavior)
+     * - subtract: Convert to eraser-type annotation
+     * - intersect: Currently treated as add (full intersect would require mask operations)
+     * - xor: Currently treated as add (full XOR would require mask operations)
+     */
+    const applyAnnotationWithMode = useCallback((newAnnotation: WorldAnnotation, mode?: MaskOperationType) => {
+      const currentMode = mode ?? maskOperationMode;
+      const existing = getSliceAnnotations();
+
+      switch (currentMode) {
+        case 'replace':
+          // Clear all and add new
+          setSliceAnnotations([newAnnotation]);
+          break;
+
+        case 'subtract':
+          // Convert to eraser type for subtraction
+          if (newAnnotation.type === 'brush') {
+            const eraserAnnotation: WorldEraserStroke = {
+              id: newAnnotation.id,
+              type: 'eraser',
+              pointsWorld: newAnnotation.pointsWorld,
+              radius: newAnnotation.radius,
+            };
+            setSliceAnnotations([...existing, eraserAnnotation]);
+          } else if (newAnnotation.type === 'freehand') {
+            const eraserAnnotation: WorldEraserFreehand = {
+              id: newAnnotation.id,
+              type: 'eraser-freehand',
+              pointsWorld: newAnnotation.pointsWorld,
+            };
+            setSliceAnnotations([...existing, eraserAnnotation]);
+          } else if (newAnnotation.type === 'polygon') {
+            const eraserAnnotation: WorldEraserPolygon = {
+              id: newAnnotation.id,
+              type: 'eraser-polygon',
+              pointsWorld: newAnnotation.pointsWorld,
+            };
+            setSliceAnnotations([...existing, eraserAnnotation]);
+          } else {
+            // For eraser types, just add as-is
+            setSliceAnnotations([...existing, newAnnotation]);
+          }
+          break;
+
+        case 'add':
+        case 'union':
+        case 'intersect':
+        case 'xor':
+        case 'none':
+        default:
+          // Append to existing (default behavior)
+          setSliceAnnotations([...existing, newAnnotation]);
+          break;
+      }
+    }, [maskOperationMode, getSliceAnnotations, setSliceAnnotations]);
 
     // === DIRTY FLAG HELPERS (no drawing here!) ===
     const markSaveDirty = useCallback(() => {
@@ -1310,7 +1373,8 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
     // === COMMIT STROKE ===
     const commitStroke = useCallback(async () => {
       if (activeRef.current) {
-        setSliceAnnotations([...getSliceAnnotations(), activeRef.current]);
+        // Use mode-aware application for the annotation
+        applyAnnotationWithMode(activeRef.current);
         activeRef.current = null;
       }
       isActiveRef.current = false;
@@ -1324,7 +1388,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
 
       // Save on commit
       await saveIfNeeded();
-    }, [getSliceAnnotations, setSliceAnnotations, saveToHistory, markSaveDirty, markStaticDirty, markActiveDirty, saveIfNeeded]);
+    }, [applyAnnotationWithMode, saveToHistory, markSaveDirty, markStaticDirty, markActiveDirty, saveIfNeeded]);
 
     // === EVENT HANDLERS (only update refs + mark dirty, no drawing) ===
     const handlePointerDown = useCallback((e: React.PointerEvent<HTMLElement>) => {
@@ -1468,7 +1532,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
               completed: true,
               color: MASK_COLOR,
             };
-            setSliceAnnotations([...getSliceAnnotations(), polygonAnnotation]);
+            applyAnnotationWithMode(polygonAnnotation);
             polygonVerticesRef.current = [];
             saveToHistory();
             markSaveDirty();
@@ -1497,7 +1561,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
                 completed: true,
                 color: MASK_COLOR,
               };
-              setSliceAnnotations([...getSliceAnnotations(), freehandAnnotation]);
+              applyAnnotationWithMode(freehandAnnotation);
               saveToHistory();
               markSaveDirty();
               markStaticDirty();
@@ -1527,7 +1591,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
     }, [
       disabled, activeTool, viewport,
       clientToWorld, clientToCanvasPoint, getWorldRadius, currentBrushRadius,
-      getSliceAnnotations, setSliceAnnotations, saveToHistory,
+      getSliceAnnotations, setSliceAnnotations, saveToHistory, applyAnnotationWithMode,
       markSaveDirty, markStaticDirty, markActiveDirty, worldToCanvas, commitStroke, saveIfNeeded, scheduleActiveDraw
     ]);
 
@@ -1871,7 +1935,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
             completed: true,
             color: MASK_COLOR,
           };
-          setSliceAnnotations([...getSliceAnnotations(), polygonAnnotation]);
+          applyAnnotationWithMode(polygonAnnotation);
           polygonVerticesRef.current = [];
           saveToHistory();
           markSaveDirty();
@@ -1901,7 +1965,7 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       }
     }, [
       disabled, viewport, activeTool,
-      getSliceAnnotations, setSliceAnnotations, saveToHistory,
+      getSliceAnnotations, setSliceAnnotations, saveToHistory, applyAnnotationWithMode,
       markSaveDirty, markStaticDirty, markActiveDirty, saveIfNeeded
     ]);
 
@@ -2023,16 +2087,20 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
         setSliceAnnotations(worldAnns);
         markStaticDirty();
         markActiveDirty();
+        // Trigger actual redraw
+        scheduleActiveDraw();
       },
       redraw: () => {
         markStaticDirty();
         markActiveDirty();
+        // Trigger actual redraw
+        scheduleActiveDraw();
       },
       forceSave: async () => {
         saveDirtyRef.current = true;
         await saveIfNeeded();
       },
-    }), [setSliceAnnotations, markSaveDirty, markStaticDirty, markActiveDirty, saveIfNeeded]);
+    }), [setSliceAnnotations, markSaveDirty, markStaticDirty, markActiveDirty, saveIfNeeded, scheduleActiveDraw]);
 
     // Status text (uses display state)
     const getStatusText = useCallback(() => {
@@ -2074,7 +2142,6 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
           className="absolute inset-0 w-full h-full"
           style={{
             pointerEvents: 'none',
-            opacity: MASK_OPACITY,
           }}
         />
 
@@ -2111,6 +2178,21 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
                 : "bg-black/70 text-white border-white/20"
           )}>
             {getStatusText()}
+          </div>
+        )}
+
+        {/* Mask Operation Mode indicator - shows current mode when not 'replace' (default) */}
+        {maskOperationMode && maskOperationMode !== 'replace' && activeTool !== 'none' && (
+          <div className={cn(
+            "absolute top-2 left-2 px-2 py-1 rounded text-xs font-medium pointer-events-none border flex items-center gap-1.5",
+            maskOperationMode === 'add' && "bg-green-900/90 text-green-100 border-green-500/50",
+            maskOperationMode === 'subtract' && "bg-red-900/90 text-red-100 border-red-500/50",
+            maskOperationMode === 'intersect' && "bg-blue-900/90 text-blue-100 border-blue-500/50",
+            maskOperationMode === 'union' && "bg-purple-900/90 text-purple-100 border-purple-500/50",
+            maskOperationMode === 'xor' && "bg-orange-900/90 text-orange-100 border-orange-500/50"
+          )}>
+            <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
+            Mode: {maskOperationMode.charAt(0).toUpperCase() + maskOperationMode.slice(1)}
           </div>
         )}
 

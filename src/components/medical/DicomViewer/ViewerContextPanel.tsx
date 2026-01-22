@@ -5,7 +5,7 @@
  * Right context panel with dynamic tool settings and annotations
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   X,
   Contrast,
@@ -14,18 +14,46 @@ import {
   Ruler,
   Crosshair,
   ZoomIn,
+  Move,
   List,
   Settings,
   Tags,
   Undo,
   Redo,
   Trash2,
+  RectangleHorizontal,
+  Circle,
+  ArrowUpRight,
+  MoveHorizontal,
+  Sliders,
+  PanelRightOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { WINDOW_LEVEL_PRESETS } from '@/lib/cornerstone/types';
 import type { ToolType } from '@/lib/cornerstone/types';
 import AnnotationList from './AnnotationList';
 import { useAnnotationStore, useCanUndo, useCanRedo } from '@/features/annotations';
+
+// Phase 1 UI Components
+import ThresholdToolPanel from './ThresholdToolPanel';
+import BrushSettingsPanel from './BrushSettingsPanel';
+import MaskOperationsPanel from './MaskOperationsPanel';
+import MeasurementsPanel from './MeasurementsPanel';
+// Phase 2 Persistence Panel
+import AnnotationPersistencePanel from './AnnotationPersistencePanel';
+// Phase 5 Smart Tools
+import SmartToolsPanel from './SmartToolsPanel';
+// AI Segmentation
+import AISegmentationPanel from './AISegmentationPanel';
+import { useAISegmentationStore, useAISegmentation } from '@/lib/aiSegmentation';
+// Phase 6 Components
+import { LabelManagementPanel } from './LabelManagementPanel';
+import { AnnotationProgressPanel } from './AnnotationProgressPanel';
+import { Visualization3DPanel } from './Visualization3DPanel';
+// Mask Operations Hook
+import { useMaskOperations } from '@/lib/annotation';
+// Canvas Store for annotations
+import { useCanvasAnnotationStore } from '@/features/annotation';
 
 interface ViewerContextPanelProps {
   activeTool: ToolType | null;
@@ -51,10 +79,15 @@ interface ViewerContextPanelProps {
   sopInstanceUID?: string;
   // Callback for annotation deletion (to sync with Cornerstone)
   onDeleteAnnotation?: (id: string) => void;
+  // Quick actions callbacks
+  onResetView?: () => void;
+  onToggleRuler?: () => void;
+  onCenterImage?: () => void;
+  onToolChange?: (tool: ToolType) => void;
   className?: string;
 }
 
-type PanelTab = 'tools' | 'annotations' | 'labels';
+type PanelTab = 'tools' | 'annotations' | 'labels' | 'advanced';
 
 interface SliderProps {
   label: string;
@@ -68,39 +101,34 @@ interface SliderProps {
 }
 
 function Slider({ label, value, min, max, step = 1, unit = '', onChange, allowInput = false }: SliderProps) {
-  const [inputValue, setInputValue] = useState(String(value));
+  const [localInputValue, setLocalInputValue] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  // Sync input value when value prop changes (and not editing)
-  useEffect(() => {
-    if (!isEditing) {
-      setInputValue(String(value));
-    }
-  }, [value, isEditing]);
+  // Use the local value when editing, otherwise derive from prop
+  const inputValue = isEditing && localInputValue !== null ? localInputValue : String(value);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value);
+    setLocalInputValue(e.target.value);
   };
 
   const handleInputBlur = () => {
     setIsEditing(false);
-    const numValue = parseFloat(inputValue);
-    if (!isNaN(numValue)) {
-      // Clamp to min/max range
-      const clampedValue = Math.max(min, Math.min(max, numValue));
-      onChange(clampedValue);
-      setInputValue(String(clampedValue));
-    } else {
-      // Reset to current value if invalid
-      setInputValue(String(value));
+    if (localInputValue !== null) {
+      const numValue = parseFloat(localInputValue);
+      if (!isNaN(numValue)) {
+        // Clamp to min/max range
+        const clampedValue = Math.max(min, Math.min(max, numValue));
+        onChange(clampedValue);
+      }
     }
+    setLocalInputValue(null);
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       (e.target as HTMLInputElement).blur();
     } else if (e.key === 'Escape') {
-      setInputValue(String(value));
+      setLocalInputValue(String(value));
       setIsEditing(false);
     }
   };
@@ -300,13 +328,93 @@ function WindowLevelSettings({
   );
 }
 
+function ZoomPanSettings({ onResetView }: { onResetView?: () => void }) {
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-[#8B949E]">
+        Click and drag on the image to zoom or pan.
+      </p>
+
+      <div className="border-t border-[#30363D] pt-4">
+        <p className="text-xs text-[#6E7681] mb-3">Keyboard Shortcuts</p>
+        <div className="space-y-2 text-xs text-[#8B949E]">
+          <div className="flex items-center gap-2">
+            <kbd className="px-1.5 py-0.5 bg-[#21262D] rounded text-[10px]">Ctrl + Scroll</kbd>
+            <span>Zoom in/out</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <kbd className="px-1.5 py-0.5 bg-[#21262D] rounded text-[10px]">Shift + Drag</kbd>
+            <span>Pan image</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <kbd className="px-1.5 py-0.5 bg-[#21262D] rounded text-[10px]">Scroll</kbd>
+            <span>Navigate slices</span>
+          </div>
+        </div>
+      </div>
+
+      <button
+        onClick={onResetView}
+        className="w-full px-3 py-2 text-xs text-[#8B949E] hover:text-white bg-[#21262D] hover:bg-[#30363D] rounded-md transition-colors"
+      >
+        <RotateCcw className="h-3 w-3 inline mr-2" />
+        Reset View
+      </button>
+    </div>
+  );
+}
+
+function MeasurementSettings() {
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-[#8B949E]">
+        Click and drag on the image to create measurements.
+      </p>
+
+      <div className="border-t border-[#30363D] pt-4">
+        <p className="text-xs text-[#6E7681] mb-3">How to Use</p>
+        <div className="space-y-2 text-xs text-[#8B949E]">
+          <p>• Click to start, drag to measure, release to finish</p>
+          <p>• Measurements are saved with the annotation</p>
+          <p>• Press ESC to cancel current measurement</p>
+        </div>
+      </div>
+
+      <div className="border-t border-[#30363D] pt-4">
+        <p className="text-xs text-[#6E7681] mb-3">Keyboard Shortcuts</p>
+        <div className="space-y-2 text-xs text-[#8B949E]">
+          <div className="flex items-center gap-2">
+            <kbd className="px-1.5 py-0.5 bg-[#21262D] rounded text-[10px]">L</kbd>
+            <span>Length tool</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <kbd className="px-1.5 py-0.5 bg-[#21262D] rounded text-[10px]">R</kbd>
+            <span>Rectangle ROI</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <kbd className="px-1.5 py-0.5 bg-[#21262D] rounded text-[10px]">A</kbd>
+            <span>Angle tool</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <kbd className="px-1.5 py-0.5 bg-[#21262D] rounded text-[10px]">D</kbd>
+            <span>Bidirectional</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DefaultInfo({
   currentSlice,
   totalSlices,
   zoom,
   windowWidth,
   windowCenter,
-}: Pick<ViewerContextPanelProps, 'currentSlice' | 'totalSlices' | 'zoom' | 'windowWidth' | 'windowCenter'>) {
+  onResetView,
+  onToggleRuler,
+  onCenterImage,
+}: Pick<ViewerContextPanelProps, 'currentSlice' | 'totalSlices' | 'zoom' | 'windowWidth' | 'windowCenter' | 'onResetView' | 'onToggleRuler' | 'onCenterImage'>) {
   return (
     <div className="space-y-4">
       <p className="text-xs text-[#8B949E]">
@@ -316,15 +424,24 @@ function DefaultInfo({
       <div className="border-t border-[#30363D] pt-4">
         <p className="text-xs text-[#6E7681] mb-3">Quick Actions</p>
         <div className="space-y-2">
-          <button className="w-full px-3 py-2 text-xs text-left text-[#8B949E] hover:text-white bg-[#21262D] hover:bg-[#30363D] rounded-md transition-colors flex items-center gap-2">
+          <button 
+            onClick={onResetView}
+            className="w-full px-3 py-2 text-xs text-left text-[#8B949E] hover:text-white bg-[#21262D] hover:bg-[#30363D] rounded-md transition-colors flex items-center gap-2"
+          >
             <RotateCcw className="h-4 w-4" />
             Reset View
           </button>
-          <button className="w-full px-3 py-2 text-xs text-left text-[#8B949E] hover:text-white bg-[#21262D] hover:bg-[#30363D] rounded-md transition-colors flex items-center gap-2">
+          <button 
+            onClick={onToggleRuler}
+            className="w-full px-3 py-2 text-xs text-left text-[#8B949E] hover:text-white bg-[#21262D] hover:bg-[#30363D] rounded-md transition-colors flex items-center gap-2"
+          >
             <Ruler className="h-4 w-4" />
             Toggle Ruler
           </button>
-          <button className="w-full px-3 py-2 text-xs text-left text-[#8B949E] hover:text-white bg-[#21262D] hover:bg-[#30363D] rounded-md transition-colors flex items-center gap-2">
+          <button 
+            onClick={onCenterImage}
+            className="w-full px-3 py-2 text-xs text-left text-[#8B949E] hover:text-white bg-[#21262D] hover:bg-[#30363D] rounded-md transition-colors flex items-center gap-2"
+          >
             <Crosshair className="h-4 w-4" />
             Center Image
           </button>
@@ -358,10 +475,14 @@ function DefaultInfo({
 
 const toolConfig: Record<string, { icon: React.ReactNode; label: string }> = {
   WindowLevel: { icon: <Contrast className="h-4 w-4" />, label: 'Window/Level' },
-  Pan: { icon: <ZoomIn className="h-4 w-4" />, label: 'Pan Tool' },
+  Pan: { icon: <Move className="h-4 w-4" />, label: 'Pan Tool' },
   Zoom: { icon: <ZoomIn className="h-4 w-4" />, label: 'Zoom Tool' },
   Crosshairs: { icon: <Crosshair className="h-4 w-4" />, label: 'Crosshairs' },
   Length: { icon: <Ruler className="h-4 w-4" />, label: 'Length Tool' },
+  RectangleROI: { icon: <RectangleHorizontal className="h-4 w-4" />, label: 'Rectangle ROI' },
+  EllipticalROI: { icon: <Circle className="h-4 w-4" />, label: 'Ellipse ROI' },
+  Angle: { icon: <ArrowUpRight className="h-4 w-4" />, label: 'Angle Tool' },
+  Bidirectional: { icon: <MoveHorizontal className="h-4 w-4" />, label: 'Bidirectional' },
 };
 
 /**
@@ -519,22 +640,77 @@ export default function ViewerContextPanel({
   currentSlice,
   totalSlices,
   zoom,
+  studyInstanceUID,
   seriesInstanceUID,
   onDeleteAnnotation,
+  onResetView,
+  onToggleRuler,
+  onCenterImage,
+  onToolChange,
   className,
 }: ViewerContextPanelProps) {
   const [activeTab, setActiveTab] = useState<PanelTab>('tools');
   const config = activeTool ? (toolConfig[activeTool] || { icon: <Info className="h-4 w-4" />, label: 'Information' }) : { icon: <Info className="h-4 w-4" />, label: 'Information' };
 
-  if (isCollapsed) {
-    return null;
-  }
+  // Mask operations hook for MaskOperationsPanel
+  const {
+    morphRadius,
+    setMorphRadius,
+    hasAnnotations,
+    executeMorphOperation,
+    invertMask,
+    clearAll,
+  } = useMaskOperations({
+    sliceIndex: currentSlice || 0,
+    imageWidth: 512, // TODO: Get actual image dimensions
+    imageHeight: 512,
+  });
+
+  // Get annotations for current slice to check if there are any
+  const { annotations: canvasAnnotations } = useCanvasAnnotationStore();
+  const sliceKey = String(currentSlice || 0);
+  const sliceHasAnnotations = (canvasAnnotations.get(sliceKey)?.length || 0) > 0;
 
   const tabs: { id: PanelTab; icon: React.ReactNode; label: string }[] = [
     { id: 'tools', icon: <Settings className="h-4 w-4" />, label: 'Tools' },
     { id: 'annotations', icon: <List className="h-4 w-4" />, label: 'Annotations' },
     { id: 'labels', icon: <Tags className="h-4 w-4" />, label: 'Labels' },
+    { id: 'advanced', icon: <Sliders className="h-4 w-4" />, label: 'Advanced' },
   ];
+
+  if (isCollapsed) {
+    return (
+      <div className="flex flex-col items-center bg-[#161B22] border-l border-[#30363D] py-2">
+        <button
+          onClick={onCollapse}
+          className="p-2 text-[#8B949E] hover:text-white hover:bg-white/10 rounded-lg transition-colors group"
+          title="Expand Panel"
+        >
+          <PanelRightOpen className="h-5 w-5" />
+        </button>
+        <div className="mt-2 flex flex-col gap-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id);
+                onCollapse?.();
+              }}
+              className={cn(
+                'p-2 rounded-lg transition-colors',
+                activeTab === tab.id
+                  ? 'text-primary bg-primary/10'
+                  : 'text-[#8B949E] hover:text-white hover:bg-white/5'
+              )}
+              title={tab.label}
+            >
+              {tab.icon}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <aside
@@ -544,20 +720,21 @@ export default function ViewerContextPanel({
       )}
     >
       {/* Tab Navigation */}
-      <div className="flex border-b border-[#30363D]">
+      <div className="flex border-b border-[#30363D] overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              'flex-1 px-3 py-2.5 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors',
+              'flex-1 min-w-[60px] px-2 py-2.5 text-[10px] font-medium flex flex-col items-center justify-center gap-0.5 transition-colors',
               activeTab === tab.id
                 ? 'text-primary border-b-2 border-primary bg-primary/5'
                 : 'text-[#8B949E] hover:text-white hover:bg-white/5'
             )}
+            title={tab.label}
           >
             {tab.icon}
-            <span>{tab.label}</span>
+            <span className="truncate">{tab.label}</span>
           </button>
         ))}
         {onCollapse && (
@@ -599,13 +776,24 @@ export default function ViewerContextPanel({
               />
             )}
 
-            {(!activeTool || !['WindowLevel', 'Brush', 'Eraser'].includes(activeTool)) && (
+            {activeTool && ['Zoom', 'Pan'].includes(activeTool) && (
+              <ZoomPanSettings onResetView={onResetView} />
+            )}
+
+            {activeTool && ['Length', 'RectangleROI', 'EllipticalROI', 'Angle', 'Bidirectional'].includes(activeTool) && (
+              <MeasurementSettings />
+            )}
+
+            {(!activeTool || !['WindowLevel', 'Brush', 'Eraser', 'Zoom', 'Pan', 'Length', 'RectangleROI', 'EllipticalROI', 'Angle', 'Bidirectional'].includes(activeTool)) && (
               <DefaultInfo
                 currentSlice={currentSlice}
                 totalSlices={totalSlices}
                 zoom={zoom}
                 windowWidth={windowWidth}
                 windowCenter={windowCenter}
+                onResetView={onResetView}
+                onToggleRuler={onToggleRuler}
+                onCenterImage={onCenterImage}
               />
             )}
           </>
@@ -619,8 +807,76 @@ export default function ViewerContextPanel({
           />
         )}
 
-        {/* Labels Tab */}
-        {activeTab === 'labels' && <LabelsPanel />}
+        {/* Labels Tab - Using Phase 6 LabelManagementPanel */}
+        {activeTab === 'labels' && (
+          <LabelManagementPanel className="bg-transparent" />
+        )}
+
+        {/* Advanced Tab - Phase 1-6 Tools */}
+        {activeTab === 'advanced' && (
+          <div className="space-y-4">
+            {/* Progress Panel (Phase 3/6) */}
+            <div className="border border-[#30363D] rounded-lg overflow-hidden">
+              <AnnotationProgressPanel
+                totalSlices={totalSlices || 1}
+                currentSlice={currentSlice || 0}
+                className="bg-transparent"
+              />
+            </div>
+
+            {/* 3D Visualization Panel (Phase 6) */}
+            <div className="border border-[#30363D] rounded-lg overflow-hidden">
+              <Visualization3DPanel
+                studyUid={studyInstanceUID}
+                seriesUid={seriesInstanceUID}
+                dimensions={[512, 512, totalSlices || 1]}
+                spacing={[1, 1, 1]}
+                className="bg-transparent"
+              />
+            </div>
+
+            {/* Smart Tools Panel (Phase 5) */}
+            <div className="border border-[#30363D] rounded-lg overflow-hidden">
+              <SmartToolsPanel />
+            </div>
+
+            {/* Annotation Persistence Panel (Phase 2) */}
+            <div className="border border-[#30363D] rounded-lg overflow-hidden">
+              <AnnotationPersistencePanel 
+                studyUid={studyInstanceUID || ''}
+                seriesUid={seriesInstanceUID || ''}
+                totalSlices={totalSlices}
+              />
+            </div>
+
+            {/* Threshold Tool Panel */}
+            <div className="border border-[#30363D] rounded-lg overflow-hidden">
+              <ThresholdToolPanel />
+            </div>
+
+            {/* Brush Settings Panel */}
+            <div className="border border-[#30363D] rounded-lg overflow-hidden">
+              <BrushSettingsPanel />
+            </div>
+
+            {/* Mask Operations Panel */}
+            <div className="border border-[#30363D] rounded-lg overflow-hidden">
+              <MaskOperationsPanel
+                onMorphOperation={executeMorphOperation}
+                onClearAll={clearAll}
+                onInvert={invertMask}
+                hasAnnotations={sliceHasAnnotations}
+                morphRadius={morphRadius}
+                onMorphRadiusChange={setMorphRadius}
+              />
+            </div>
+
+            {/* Measurements Panel */}
+            <div className="border border-[#30363D] rounded-lg overflow-hidden">
+              <MeasurementsPanel measurements={[]} />
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   );

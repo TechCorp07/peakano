@@ -8,14 +8,20 @@
 
 import { RENDERING_ENGINE_ID, TOOL_GROUP_ID, type ToolType } from './types';
 
+// Types for dynamically imported Cornerstone modules
+type CornerstoneCore = typeof import('@cornerstonejs/core');
+type CornerstoneTools = typeof import('@cornerstonejs/tools');
+type DicomImageLoader = typeof import('@cornerstonejs/dicom-image-loader');
+type RenderingEngine = InstanceType<CornerstoneCore['RenderingEngine']>;
+
 // Track initialization state
 let isInitialized = false;
-let renderingEngine: any = null;
+let renderingEngine: RenderingEngine | null = null;
 
 // Store module references after dynamic import
-let csCore: any = null;
-let csTools: any = null;
-let dicomImageLoader: any = null;
+let csCore: CornerstoneCore | null = null;
+let csTools: CornerstoneTools | null = null;
+let dicomImageLoader: DicomImageLoader | null = null;
 
 // Segmentation state
 let segmentationIdCounter = 0;
@@ -43,7 +49,7 @@ export async function initializeCornerstone(): Promise<void> {
 
     // Store on window for HMR recovery
     if (typeof window !== 'undefined') {
-      (window as any).__cornerstoneCore = csCore;
+      window.__cornerstoneCore = csCore;
     }
 
     // Initialize Cornerstone core first
@@ -62,7 +68,7 @@ export async function initializeCornerstone(): Promise<void> {
       // Store fileManager reference for use with blob URLs
       const wadouriModule = dicomImageLoader.wadouri;
       if (wadouriModule?.fileManager) {
-        (window as any).__cornerstoneWadouriFileManager = wadouriModule.fileManager;
+        window.__cornerstoneWadouriFileManager = wadouriModule.fileManager;
       }
     } catch (loaderError) {
       console.error('[Cornerstone] DICOM image loader initialization error:', loaderError);
@@ -129,7 +135,7 @@ function addAllTools(): void {
 /**
  * Create and get the rendering engine
  */
-export function getRenderingEngine(): any {
+export function getRenderingEngine(): RenderingEngine | null {
   if (!isInitialized || !csCore) {
     throw new Error('Cornerstone not initialized. Call initializeCornerstone() first.');
   }
@@ -222,7 +228,8 @@ export function getToolGroup(toolGroupId: string = TOOL_GROUP_ID) {
 
 /**
  * Set the active tool
- * Pan and Zoom tools use modifier keys to avoid conflicts with annotation tools
+ * Pan and Zoom can be activated as primary tools when explicitly selected,
+ * while also keeping modifier key shortcuts available
  */
 export function setActiveTool(
   toolName: ToolType,
@@ -242,28 +249,7 @@ export function setActiveTool(
     toolGroup.setToolPassive(currentPrimaryTool);
   }
 
-  // Handle special cases for Pan and Zoom with modifier keys
-  if (toolName === 'Pan') {
-    toolGroup.setToolActive(toolName, {
-      bindings: [{
-        mouseButton: csTools.Enums.MouseBindings.Primary,
-        modifierKey: csTools.Enums.KeyboardBindings.Shift,
-      }],
-    });
-    return;
-  }
-
-  if (toolName === 'Zoom') {
-    toolGroup.setToolActive(toolName, {
-      bindings: [{
-        mouseButton: csTools.Enums.MouseBindings.Wheel,
-        modifierKey: csTools.Enums.KeyboardBindings.Ctrl,
-      }],
-    });
-    return;
-  }
-
-  // Activate new tool with standard binding
+  // Get the mouse button enum
   const mouseButtonEnum =
     mouseButton === 'Primary'
       ? csTools.Enums.MouseBindings.Primary
@@ -271,6 +257,35 @@ export function setActiveTool(
         ? csTools.Enums.MouseBindings.Secondary
         : csTools.Enums.MouseBindings.Auxiliary;
 
+  // Handle Pan - activate as primary AND keep Shift+click shortcut
+  if (toolName === 'Pan') {
+    toolGroup.setToolActive(toolName, {
+      bindings: [
+        { mouseButton: mouseButtonEnum }, // Primary activation
+        {
+          mouseButton: csTools.Enums.MouseBindings.Primary,
+          modifierKey: csTools.Enums.KeyboardBindings.Shift,
+        }, // Shift shortcut
+      ],
+    });
+    return;
+  }
+
+  // Handle Zoom - activate as primary AND keep Ctrl+scroll shortcut
+  if (toolName === 'Zoom') {
+    toolGroup.setToolActive(toolName, {
+      bindings: [
+        { mouseButton: mouseButtonEnum }, // Primary activation
+        {
+          mouseButton: csTools.Enums.MouseBindings.Wheel,
+          modifierKey: csTools.Enums.KeyboardBindings.Ctrl,
+        }, // Ctrl+scroll shortcut
+      ],
+    });
+    return;
+  }
+
+  // Activate new tool with standard binding
   toolGroup.setToolActive(toolName, {
     bindings: [{ mouseButton: mouseButtonEnum }],
   });
@@ -382,9 +397,9 @@ export function getViewport(viewportId: string) {
   }
 
   // Last resort: try to access Cornerstone from window cache in case of HMR module reset
-  if (typeof window !== 'undefined' && (window as any).__cornerstoneCore) {
+  if (typeof window !== 'undefined' && window.__cornerstoneCore) {
     try {
-      const csCoreModule = (window as any).__cornerstoneCore;
+      const csCoreModule = window.__cornerstoneCore;
       if (csCoreModule && csCoreModule.getRenderingEngine) {
         const engine = csCoreModule.getRenderingEngine(RENDERING_ENGINE_ID);
         if (engine) {

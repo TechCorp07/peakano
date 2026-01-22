@@ -23,16 +23,20 @@ import {
   FileText,
   AlertTriangle,
   BarChart3,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import {
+  useGetAnnotationTasksQuery,
+  useGetAnnotationStatsQuery,
+  type AnnotationTask,
+} from '@/features/annotationTasks';
 import {
   mockAnnotationTasks,
   mockAnnotationStats,
-  getContinueTask,
-  getUrgentTasks,
-  getTasksNeedingAttention,
-  type AnnotationTask,
 } from '@/lib/mock/learningData';
 
 type StatusFilter = 'all' | 'pending' | 'in-progress' | 'submitted' | 'approved' | 'rejected';
@@ -42,87 +46,170 @@ export default function AnnotationPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
 
-  const continueTask = getContinueTask();
-  const urgentTasks = getUrgentTasks();
-  const tasksNeedingAttention = getTasksNeedingAttention();
+  // Fetch annotation tasks and stats from API
+  const { 
+    data: tasksData, 
+    isLoading: tasksLoading, 
+    error: tasksError,
+    refetch: refetchTasks 
+  } = useGetAnnotationTasksQuery({});
+  
+  const { 
+    data: statsData, 
+    isLoading: statsLoading, 
+    error: statsError 
+  } = useGetAnnotationStatsQuery();
+
+  // Check if using mock data (API not available)
+  const isUsingMockData = !!tasksError || !!statsError;
+
+  // Use API data with fallback to mock data
+  const allTasks = useMemo(() => {
+    if (tasksData?.items) {
+      return tasksData.items;
+    }
+    return mockAnnotationTasks;
+  }, [tasksData]);
+
+  const annotationStats = useMemo(() => {
+    if (statsData) {
+      return statsData;
+    }
+    return mockAnnotationStats;
+  }, [statsData]);
+
+  // Derived data
+  const continueTask = useMemo(() => {
+    return allTasks.find(task => task.status === 'in-progress');
+  }, [allTasks]);
+
+  const urgentTasks = useMemo(() => {
+    return allTasks.filter(task => task.priority === 'urgent' && task.status === 'pending');
+  }, [allTasks]);
+
+  const tasksNeedingAttention = useMemo(() => {
+    return allTasks.filter(task => task.status === 'rejected');
+  }, [allTasks]);
 
   const filteredTasks = useMemo(() => {
-    return mockAnnotationTasks.filter(task => {
+    return allTasks.filter(task => {
       const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
       const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
       return matchesStatus && matchesPriority;
     });
-  }, [statusFilter, priorityFilter]);
+  }, [allTasks, statusFilter, priorityFilter]);
 
-  const pendingTasks = filteredTasks.filter(t => t.status === 'pending');
-  const inProgressTasks = filteredTasks.filter(t => t.status === 'in-progress');
+  const isLoading = tasksLoading || statsLoading;
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0D1117] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 text-primary animate-spin" />
+          <p className="text-[#8B949E] text-lg">Loading annotation tasks...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#0D1117] p-6">
+    <div className="min-h-screen bg-[#0D1117] p-6 lg:p-8">
+      {/* Demo Mode Notice */}
+      {isUsingMockData && (
+        <Alert className="mb-6 border-amber-500/50 bg-amber-500/10">
+          <AlertCircle className="h-4 w-4 text-amber-500" />
+          <AlertDescription className="text-amber-200 flex items-center justify-between">
+            <span>Running in demo mode with sample data. Connect the backend for live data.</span>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => refetchTasks()}
+              className="text-amber-500 hover:text-amber-400"
+            >
+              <RefreshCw className="h-4 w-4 mr-1" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Pencil className="h-6 w-6 text-primary" />
+      <div className="flex items-center justify-between mb-10">
+        <div className="flex items-center gap-4">
+          <div className="p-4 bg-gradient-to-br from-slate-500/20 to-slate-600/10 rounded-2xl border border-slate-500/30 shadow-lg shadow-slate-500/10">
+            <Pencil className="h-8 w-8 text-slate-300" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-[#E6EDF3]">Annotation Workspace</h1>
-            <p className="text-sm text-[#8B949E]">
+            <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">
+              Workflow
+            </p>
+            <h1 className="text-3xl lg:text-4xl font-extrabold text-[#E6EDF3] tracking-tight">Annotation Workspace</h1>
+            <p className="text-base text-[#8B949E] mt-1">
               Your assigned cases and annotation tasks
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="border-[#30363D] text-[#8B949E] hover:text-white">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" className="border-slate-500/30 text-slate-300 hover:text-slate-200 hover:bg-slate-500/10 hover:border-slate-400/50">
             <BarChart3 className="h-4 w-4 mr-2" />
             My Stats
           </Button>
-          <Button variant="outline" className="border-[#30363D] text-[#8B949E] hover:text-white">
+          <Button variant="outline" className="border-slate-500/30 text-slate-300 hover:text-slate-200 hover:bg-slate-500/10 hover:border-slate-400/50">
             Team View
           </Button>
         </div>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
         <StatCard
           label="Pending"
-          value={mockAnnotationStats.pending}
-          sublabel="cases"
-          color="text-yellow-500"
-          bgColor="bg-yellow-500/10"
+          value={annotationStats.pending}
+          sublabel="cases awaiting"
+          color="text-amber-400"
+          bgColor="bg-gradient-to-br from-amber-500/20 to-amber-600/10"
+          borderColor="border-2 border-amber-500/40"
+          glowColor="hover:shadow-amber-500/30"
         />
         <StatCard
           label="In Progress"
-          value={mockAnnotationStats.inProgress}
-          sublabel="cases"
-          color="text-blue-500"
-          bgColor="bg-blue-500/10"
+          value={annotationStats.inProgress}
+          sublabel="active cases"
+          color="text-blue-400"
+          bgColor="bg-gradient-to-br from-blue-500/20 to-blue-600/10"
+          borderColor="border-2 border-blue-500/40"
+          glowColor="hover:shadow-blue-500/30"
         />
         <StatCard
           label="Submitted"
-          value={mockAnnotationStats.submitted}
+          value={annotationStats.submitted}
           sublabel="awaiting review"
-          color="text-purple-500"
-          bgColor="bg-purple-500/10"
+          color="text-teal-400"
+          bgColor="bg-gradient-to-br from-teal-500/20 to-teal-600/10"
+          borderColor="border-2 border-teal-500/40"
+          glowColor="hover:shadow-teal-500/30"
         />
         <StatCard
           label="Approved"
-          value={mockAnnotationStats.approved}
+          value={annotationStats.approved}
           sublabel="this month"
-          color="text-green-500"
-          bgColor="bg-green-500/10"
+          color="text-emerald-400"
+          bgColor="bg-gradient-to-br from-emerald-500/20 to-emerald-600/10"
+          borderColor="border-2 border-emerald-500/40"
+          glowColor="hover:shadow-emerald-500/30"
         />
       </div>
 
       {/* Continue Where You Left Off */}
       {continueTask && (
-        <div className="mb-6">
-          <h2 className="text-sm font-semibold text-[#8B949E] uppercase tracking-wide mb-3 flex items-center gap-2">
-            <Play className="h-4 w-4" />
-            Continue Where You Left Off
-          </h2>
-          <div className="bg-gradient-to-r from-primary/10 to-transparent rounded-lg border border-primary/30 p-5">
+        <div className="mb-10">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="h-8 w-1 bg-gradient-to-b from-primary to-blue-400 rounded-full" />
+            <Play className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-bold text-[#E6EDF3] tracking-tight">Continue Where You Left Off</h2>
+          </div>
+          <div className="bg-gradient-to-r from-primary/15 via-blue-500/10 to-transparent rounded-2xl border-2 border-primary/40 p-6 shadow-xl shadow-primary/10">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-lg bg-[#21262D] flex items-center justify-center">
@@ -161,12 +248,14 @@ export default function AnnotationPage() {
 
       {/* Urgent Tasks */}
       {urgentTasks.length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-sm font-semibold text-red-500 uppercase tracking-wide mb-3 flex items-center gap-2">
-            <AlertCircle className="h-4 w-4" />
-            Urgent
-          </h2>
-          <div className="space-y-3">
+        <div className="mb-10">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="h-8 w-1 bg-gradient-to-b from-red-500 to-rose-500 rounded-full" />
+            <AlertCircle className="h-5 w-5 text-red-400" />
+            <h2 className="text-xl font-bold text-red-400 tracking-tight">Urgent Tasks</h2>
+            <span className="px-3 py-1 bg-red-500/10 text-red-400 text-sm font-semibold rounded-full border border-red-500/30">{urgentTasks.length} urgent</span>
+          </div>
+          <div className="space-y-4">
             {urgentTasks.map((task) => (
               <TaskCard key={task.id} task={task} variant="urgent" />
             ))}
@@ -176,12 +265,14 @@ export default function AnnotationPage() {
 
       {/* Needs Attention (Rejected) */}
       {tasksNeedingAttention.length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-sm font-semibold text-yellow-500 uppercase tracking-wide mb-3 flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            Needs Attention ({tasksNeedingAttention.length} returned for revision)
-          </h2>
-          <div className="space-y-3">
+        <div className="mb-10">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="h-8 w-1 bg-gradient-to-b from-amber-500 to-orange-500 rounded-full" />
+            <AlertTriangle className="h-5 w-5 text-amber-400" />
+            <h2 className="text-xl font-bold text-amber-400 tracking-tight">Needs Attention</h2>
+            <span className="px-3 py-1 bg-amber-500/10 text-amber-400 text-sm font-semibold rounded-full border border-amber-500/30">{tasksNeedingAttention.length} returned</span>
+          </div>
+          <div className="space-y-4">
             {tasksNeedingAttention.map((task) => (
               <TaskCard key={task.id} task={task} variant="rejected" showFeedback />
             ))}
@@ -191,37 +282,41 @@ export default function AnnotationPage() {
 
       {/* Task Queue */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-[#E6EDF3]">My Task Queue</h2>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-1 bg-gradient-to-b from-slate-400 to-slate-500 rounded-full" />
+            <h2 className="text-2xl font-bold text-[#E6EDF3] tracking-tight">My Task Queue</h2>
+            <span className="px-3 py-1 bg-slate-500/10 text-slate-300 text-sm font-semibold rounded-full border border-slate-500/20">{filteredTasks.length} tasks</span>
+          </div>
           <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-[#8B949E]" />
+            <Filter className="h-4 w-4 text-slate-400" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="bg-[#21262D] border border-[#30363D] rounded-md px-3 py-1.5 text-sm text-[#E6EDF3] focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-10 px-3 rounded-lg border border-slate-500/30 bg-gradient-to-br from-[#0D1117] via-[#161B22] to-[#0D1117] text-sm text-[#E6EDF3] focus:outline-none focus:ring-2 focus:ring-slate-500/50 focus:border-slate-400/50 hover:border-slate-400/40 transition-all cursor-pointer"
             >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="in-progress">In Progress</option>
-              <option value="submitted">Submitted</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
+              <option value="all" className="bg-[#161B22]">All Status</option>
+              <option value="pending" className="bg-[#161B22]">Pending</option>
+              <option value="in-progress" className="bg-[#161B22]">In Progress</option>
+              <option value="submitted" className="bg-[#161B22]">Submitted</option>
+              <option value="approved" className="bg-[#161B22]">Approved</option>
+              <option value="rejected" className="bg-[#161B22]">Rejected</option>
             </select>
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value as PriorityFilter)}
-              className="bg-[#21262D] border border-[#30363D] rounded-md px-3 py-1.5 text-sm text-[#E6EDF3] focus:outline-none focus:ring-1 focus:ring-primary"
+              className="h-10 px-3 rounded-lg border border-slate-500/30 bg-gradient-to-br from-[#0D1117] via-[#161B22] to-[#0D1117] text-sm text-[#E6EDF3] focus:outline-none focus:ring-2 focus:ring-slate-500/50 focus:border-slate-400/50 hover:border-slate-400/40 transition-all cursor-pointer"
             >
-              <option value="all">All Priority</option>
-              <option value="urgent">Urgent</option>
-              <option value="normal">Normal</option>
-              <option value="low">Low</option>
+              <option value="all" className="bg-[#161B22]">All Priority</option>
+              <option value="urgent" className="bg-[#161B22]">Urgent</option>
+              <option value="normal" className="bg-[#161B22]">Normal</option>
+              <option value="low" className="bg-[#161B22]">Low</option>
             </select>
           </div>
         </div>
 
         {/* Task List */}
-        <div className="bg-[#161B22] rounded-lg border border-[#30363D] overflow-hidden">
+        <div className="bg-gradient-to-br from-[#161B22] to-[#1a1f29] rounded-xl border border-slate-500/20 overflow-hidden shadow-lg shadow-slate-500/5">
           {filteredTasks.length > 0 ? (
             <div className="divide-y divide-[#30363D]">
               {filteredTasks.map((task) => (
@@ -251,18 +346,29 @@ function StatCard({
   sublabel,
   color,
   bgColor,
+  borderColor,
+  glowColor,
 }: {
   label: string;
   value: number;
   sublabel: string;
   color: string;
   bgColor: string;
+  borderColor: string;
+  glowColor: string;
 }) {
   return (
-    <div className={cn("rounded-lg p-4", bgColor)}>
-      <p className="text-xs text-[#8B949E] mb-1">{label}</p>
-      <p className={cn("text-3xl font-bold", color)}>{value}</p>
-      <p className="text-xs text-[#8B949E]">{sublabel}</p>
+    <div className={cn(
+      "relative overflow-hidden rounded-2xl p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl",
+      bgColor,
+      borderColor,
+      glowColor
+    )}>
+      {/* Colored accent line at top */}
+      <div className={cn("absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r", color.replace('text-', 'from-').replace('400', '500'), color.replace('text-', 'to-').replace('400', '600'))} />
+      <p className="text-sm text-[#E6EDF3] font-bold uppercase tracking-wider mb-2">{label}</p>
+      <p className={cn("text-5xl font-black tracking-tight", color)}>{value}</p>
+      <p className="text-base text-[#8B949E] mt-2 font-medium">{sublabel}</p>
     </div>
   );
 }

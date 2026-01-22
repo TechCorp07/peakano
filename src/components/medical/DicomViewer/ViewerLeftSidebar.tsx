@@ -16,8 +16,6 @@ import {
   Calendar,
   Scan,
   Hash,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Study, Series } from '@/types/dicom';

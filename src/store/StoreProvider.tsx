@@ -1,8 +1,23 @@
 'use client';
 
-import { useRef } from 'react';
+import { useMemo } from 'react';
 import { Provider } from 'react-redux';
 import { makeStore, type AppStore } from '@/store';
+
+// Store singleton for client-side
+let clientStore: AppStore | undefined;
+
+function getOrCreateStore(): AppStore {
+  // Server-side: always create a new store
+  if (typeof window === 'undefined') {
+    return makeStore();
+  }
+  // Client-side: reuse the same store
+  if (!clientStore) {
+    clientStore = makeStore();
+  }
+  return clientStore;
+}
 
 /**
  * Redux Store Provider for Next.js App Router
@@ -11,13 +26,10 @@ import { makeStore, type AppStore } from '@/store';
  * in server-side rendering, while maintaining a single instance on the client.
  */
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  // Use ref to ensure store is only created once per client session
-  const storeRef = useRef<AppStore | null>(null);
+  // Use useMemo to ensure store is only created once per render tree
+  // On client, this always returns the same singleton store
+  // On server, this creates a new store per request
+  const store = useMemo(() => getOrCreateStore(), []);
   
-  if (!storeRef.current) {
-    // Create the store instance the first time this renders
-    storeRef.current = makeStore();
-  }
-  
-  return <Provider store={storeRef.current}>{children}</Provider>;
+  return <Provider store={store}>{children}</Provider>;
 }

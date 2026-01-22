@@ -77,17 +77,20 @@ export default function ProfileSettingsPage() {
     };
 
     return (
-        <div className="space-y-8">
+        <div className="p-6 lg:p-8 space-y-10">
             {/* Header */}
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" asChild>
+            <div className="flex items-center gap-5">
+                <Button variant="ghost" size="icon" asChild className="hover:bg-primary/10">
                     <Link href={ROUTES.PROFILE}>
-                        <ArrowLeft className="h-4 w-4" />
+                        <ArrowLeft className="h-5 w-5" />
                     </Link>
                 </Button>
                 <div>
-                    <h1 className="text-3xl font-bold">Profile Settings</h1>
-                    <p className="text-muted-foreground">Manage your account settings</p>
+                    <p className="text-sm font-medium text-primary uppercase tracking-wider mb-1">
+                        Settings
+                    </p>
+                    <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight">Profile Settings</h1>
+                    <p className="text-base text-muted-foreground mt-1">Manage your account security and preferences</p>
                 </div>
             </div>
 

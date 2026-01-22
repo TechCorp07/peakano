@@ -122,71 +122,85 @@ export default function StudiesPage() {
   };
 
   return (
-    <div className="p-6">
+    <div className="min-h-screen bg-[#0D1117] p-6 lg:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-[#E6EDF3]">DICOM Studies</h1>
-          <p className="text-sm text-[#8B949E] mt-1">
-            Browse and view medical imaging studies
-          </p>
+      <div className="flex items-center justify-between mb-10">
+        <div className="flex items-center gap-4">
+          <div className="p-4 bg-gradient-to-br from-blue-500/20 to-cyan-500/10 rounded-2xl border border-blue-500/30 shadow-lg shadow-blue-500/10">
+            <Scan className="h-8 w-8 text-blue-400" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-blue-400 uppercase tracking-wider mb-1">
+              Medical Imaging
+            </p>
+            <h1 className="text-3xl lg:text-4xl font-extrabold text-[#E6EDF3] tracking-tight">DICOM Studies</h1>
+            <p className="text-base text-[#8B949E] mt-1">
+              Browse, search, and view medical imaging studies for annotation
+            </p>
+          </div>
         </div>
 
-        <Button
-          onClick={() => refetch()}
-          variant="outline"
-          size="sm"
-          className="bg-[#21262D] border-[#30363D] text-[#8B949E] hover:text-white hover:bg-[#30363D]"
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-4">
+          <div className="text-right mr-2">
+            <p className="text-sm text-[#8B949E]">Total Studies</p>
+            <p className="text-2xl font-bold text-blue-400">{total}</p>
+          </div>
+          <Button
+            onClick={() => refetch()}
+            variant="outline"
+            size="default"
+            className="border-blue-500/30 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 hover:border-blue-400/50 transition-all"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-[#161B22] rounded-lg border border-[#30363D] p-4 mb-6">
+      <div className="bg-gradient-to-br from-[#161B22] to-[#1a1f29] rounded-2xl border-2 border-blue-500/30 p-6 mb-8 shadow-xl shadow-blue-500/10">
         <div className="flex items-center gap-4">
           {/* Search */}
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6E7681]" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-400" />
             <Input
               placeholder="Search by patient name..."
               value={searchTerm}
               onChange={(e) => handleSearch(e.target.value)}
-              className="pl-10 bg-[#0D1117] border-[#30363D] text-[#E6EDF3] placeholder:text-[#6E7681] focus:border-primary"
+              className="pl-12 h-12 text-base bg-[#0D1117] border-blue-500/30 text-[#E6EDF3] placeholder:text-[#6E7681] focus:border-blue-400 focus:ring-blue-400/20"
             />
           </div>
 
           {/* Filter toggle */}
           <Button
             variant={showFilters ? 'default' : 'outline'}
-            size="sm"
+            size="lg"
             onClick={() => setShowFilters(!showFilters)}
             className={cn(
               showFilters
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-[#21262D] border-[#30363D] text-[#8B949E] hover:text-white hover:bg-[#30363D]'
+                ? 'bg-blue-500 text-white hover:bg-blue-400'
+                : 'border-blue-500/30 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 hover:border-blue-400/50'
             )}
           >
-            <Filter className="h-4 w-4 mr-2" />
+            <Filter className="h-5 w-5 mr-2" />
             Filters
           </Button>
         </div>
 
         {/* Expanded filters */}
         {showFilters && (
-          <div className="mt-4 pt-4 border-t border-[#30363D]">
-            <div className="flex items-center gap-4 flex-wrap">
+          <div className="mt-5 pt-5 border-t border-blue-500/20">
+            <div className="flex items-center gap-6 flex-wrap">
               {/* Modality filter */}
               <div>
-                <label className="text-xs text-[#8B949E] mb-1 block">Modality</label>
+                <label className="text-sm text-blue-400 mb-2 block font-bold uppercase tracking-wide">Modality</label>
                 <select
                   value={selectedModality}
                   onChange={(e) => handleModalityChange(e.target.value as Modality | '')}
-                  className="h-9 px-3 rounded-md border border-[#30363D] bg-[#0D1117] text-sm text-[#E6EDF3] focus:outline-none focus:ring-1 focus:ring-primary"
+                  className="h-11 px-4 rounded-xl border-2 border-blue-500/30 bg-gradient-to-br from-[#0D1117] via-[#161B22] to-[#0D1117] text-base text-[#E6EDF3] focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400/50 hover:border-blue-400/40 transition-all cursor-pointer"
                 >
                   {MODALITIES.map((m) => (
-                    <option key={m.value} value={m.value}>
+                    <option key={m.value} value={m.value} className="bg-[#161B22]">
                       {m.label}
                     </option>
                   ))}
@@ -197,11 +211,11 @@ export default function StudiesPage() {
               <div className="flex items-end">
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="default"
                   onClick={handleResetFilters}
-                  className="text-[#8B949E] hover:text-white hover:bg-white/5"
+                  className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
                 >
-                  <X className="h-4 w-4 mr-1" />
+                  <X className="h-5 w-5 mr-2" />
                   Reset Filters
                 </Button>
               </div>
@@ -253,53 +267,73 @@ export default function StudiesPage() {
       {/* Studies grid */}
       {!isLoading && studies.length > 0 && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-8 w-1 bg-gradient-to-b from-blue-400 to-cyan-400 rounded-full" />
+            <h2 className="text-2xl font-bold text-[#E6EDF3] tracking-tight">Available Studies</h2>
+            <span className="px-3 py-1 bg-blue-500/10 text-blue-400 text-sm font-semibold rounded-full border border-blue-500/20">{studies.length} studies</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {studies.map((study) => (
               <div
                 key={study.studyInstanceUID}
-                className="bg-[#161B22] rounded-lg border border-[#30363D] p-4 hover:border-[#58A6FF]/50 transition-colors"
+                className={cn(
+                  "relative overflow-hidden rounded-2xl border-2 p-6 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl",
+                  "bg-gradient-to-br from-[#161B22] via-[#161B22] to-[#1a1f29]",
+                  study.modality === 'CT' && 'border-blue-500/40 hover:shadow-blue-500/30 hover:border-blue-400/60',
+                  study.modality === 'MR' && 'border-teal-500/40 hover:shadow-teal-500/30 hover:border-teal-400/60',
+                  study.modality === 'XR' && 'border-amber-500/40 hover:shadow-amber-500/30 hover:border-amber-400/60',
+                  !['CT', 'MR', 'XR'].includes(study.modality) && 'border-[#30363D] hover:border-primary/50'
+                )}
               >
+                {/* Colored accent bar */}
+                <div className={cn(
+                  "absolute top-0 left-0 right-0 h-1.5",
+                  study.modality === 'CT' && 'bg-gradient-to-r from-blue-500 to-blue-600',
+                  study.modality === 'MR' && 'bg-gradient-to-r from-teal-500 to-teal-600',
+                  study.modality === 'XR' && 'bg-gradient-to-r from-amber-500 to-orange-600',
+                  !['CT', 'MR', 'XR'].includes(study.modality) && 'bg-gradient-to-r from-gray-500 to-gray-600'
+                )} />
                 {/* Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-start justify-between mb-4 mt-2">
+                  <div className="flex items-center gap-3">
                     <span
                       className={cn(
-                        'text-xs font-medium px-2 py-0.5 rounded',
-                        study.modality === 'CT' && 'bg-blue-500/20 text-blue-400',
-                        study.modality === 'MR' && 'bg-purple-500/20 text-purple-400',
-                        study.modality === 'XR' && 'bg-amber-500/20 text-amber-400',
+                        'text-sm font-bold px-3 py-1.5 rounded-lg shadow-sm',
+                        study.modality === 'CT' && 'bg-gradient-to-r from-blue-500/30 to-blue-600/20 text-blue-400 border border-blue-500/40',
+                        study.modality === 'MR' && 'bg-gradient-to-r from-teal-500/30 to-teal-600/20 text-teal-400 border border-teal-500/40',
+                        study.modality === 'XR' && 'bg-gradient-to-r from-amber-500/30 to-orange-600/20 text-amber-400 border border-amber-500/40',
                         !['CT', 'MR', 'XR'].includes(study.modality) &&
                           'bg-[#30363D] text-[#8B949E]'
                       )}
                     >
                       {study.modality}
                     </span>
-                    <span className="text-xs text-[#6E7681]">
+                    <span className="text-sm text-[#8B949E] font-medium">
                       {study.numberOfSeries} series, {study.numberOfInstances} images
                     </span>
                   </div>
                 </div>
 
                 {/* Patient info */}
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center gap-2 text-sm">
-                    <User className="h-4 w-4 text-[#6E7681]" />
-                    <span className="text-[#E6EDF3] font-medium truncate">
+                <div className="space-y-3 mb-5">
+                  <div className="flex items-center gap-3 text-base">
+                    <User className="h-5 w-5 text-[#6E7681]" />
+                    <span className="text-[#E6EDF3] font-semibold truncate">
                       {study.patientName || 'Unknown Patient'}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="h-4 w-4 text-[#6E7681]" />
-                    <span className="text-[#8B949E]">
+                  <div className="flex items-center gap-3 text-base">
+                    <Calendar className="h-5 w-5 text-[#6E7681]" />
+                    <span className="text-[#8B949E] font-medium">
                       {formatDate(study.studyDate)}
                     </span>
                   </div>
 
                   {study.studyDescription && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Scan className="h-4 w-4 text-[#6E7681]" />
-                      <p className="text-xs text-[#6E7681] truncate">
+                    <div className="flex items-center gap-3 text-sm">
+                      <Scan className="h-5 w-5 text-[#6E7681]" />
+                      <p className="text-[#6E7681] truncate">
                         {study.studyDescription}
                       </p>
                     </div>
@@ -309,10 +343,10 @@ export default function StudiesPage() {
                 {/* Actions */}
                 <Link href={`/viewer/${study.studyInstanceUID}`}>
                   <Button
-                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                    size="sm"
+                    className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground text-base font-semibold"
+                    size="default"
                   >
-                    <Eye className="h-4 w-4 mr-2" />
+                    <Eye className="h-5 w-5 mr-2" />
                     View Study
                   </Button>
                 </Link>

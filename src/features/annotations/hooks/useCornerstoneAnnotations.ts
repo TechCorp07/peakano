@@ -6,6 +6,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useAnnotationStore } from '../store';
 import type { Annotation, AnnotationToolType, Label } from '@/types/annotation';
+import type { CornerstoneAnnotationEvent, CornerstoneToolsModule } from '@/types/dicom';
 
 /**
  * Map Cornerstone tool names to our annotation types
@@ -25,6 +26,27 @@ const TOOL_NAME_MAP: Record<string, AnnotationToolType> = {
 };
 
 /**
+ * Cornerstone annotation data structure
+ */
+interface CornerstoneAnnotationData {
+  metadata?: {
+    toolName?: string;
+    viewportId?: string;
+    referencedImageId?: string;
+  };
+  data?: {
+    handles?: {
+      points?: Array<{ x: number; y: number; z?: number }>;
+      textBox?: { worldPosition: number[] };
+    };
+    cachedStats?: Record<string, unknown>;
+    text?: string;
+    label?: string;
+  };
+  annotationUID?: string;
+}
+
+/**
  * Generate a unique annotation ID
  */
 function generateAnnotationId(): string {
@@ -35,14 +57,14 @@ function generateAnnotationId(): string {
  * Convert Cornerstone annotation to our Annotation type
  */
 function convertCornerstoneAnnotation(
-  csAnnotation: any,
+  csAnnotation: CornerstoneAnnotationData,
   studyInstanceUID: string,
   seriesInstanceUID: string,
   sopInstanceUID: string,
   imageIndex: number,
   selectedLabel?: Label | null
 ): Annotation {
-  const toolType = TOOL_NAME_MAP[csAnnotation.metadata?.toolName] || 'length';
+  const toolType = TOOL_NAME_MAP[csAnnotation.metadata?.toolName || ''] || 'length';
 
   return {
     id: generateAnnotationId(),
@@ -120,7 +142,7 @@ export function useCornerstoneAnnotations({
 
   // Track if we're initialized
   const isInitializedRef = useRef(false);
-  const csToolsRef = useRef<any>(null);
+  const csToolsRef = useRef<CornerstoneToolsModule | null>(null);
 
   // Initialize Cornerstone tools reference
   useEffect(() => {
@@ -128,7 +150,8 @@ export function useCornerstoneAnnotations({
 
     const initTools = async () => {
       try {
-        csToolsRef.current = await import('@cornerstonejs/tools');
+        const tools = await import('@cornerstonejs/tools');
+        csToolsRef.current = tools as unknown as CornerstoneToolsModule;
         isInitializedRef.current = true;
       } catch (error) {
         console.error('[useCornerstoneAnnotations] Failed to load Cornerstone tools:', error);
@@ -140,14 +163,14 @@ export function useCornerstoneAnnotations({
 
   // Handle annotation added event
   const handleAnnotationAdded = useCallback(
-    (event: any) => {
+    (event: CornerstoneAnnotationEvent) => {
       if (!studyInstanceUID || !seriesInstanceUID || !sopInstanceUID) return;
 
       const annotation = event.detail?.annotation;
       if (!annotation) return;
 
       const converted = convertCornerstoneAnnotation(
-        annotation,
+        annotation as CornerstoneAnnotationData,
         studyInstanceUID,
         seriesInstanceUID,
         sopInstanceUID,
@@ -162,7 +185,7 @@ export function useCornerstoneAnnotations({
 
   // Handle annotation modified event
   const handleAnnotationModified = useCallback(
-    (event: any) => {
+    (event: CornerstoneAnnotationEvent) => {
       const csAnnotation = event.detail?.annotation;
       if (!csAnnotation?.annotationUID) return;
 
@@ -192,8 +215,8 @@ export function useCornerstoneAnnotations({
 
   // Handle annotation removed event
   const handleAnnotationRemoved = useCallback(
-    (event: any) => {
-      const csAnnotationUID = event.detail?.annotationUID;
+    (event: CornerstoneAnnotationEvent) => {
+      const csAnnotationUID = event.detail?.annotation?.annotationUID;
       if (!csAnnotationUID) return;
 
       // Find our annotation by Cornerstone UID
@@ -210,8 +233,8 @@ export function useCornerstoneAnnotations({
 
   // Handle annotation selection event
   const handleAnnotationSelected = useCallback(
-    (event: any) => {
-      const csAnnotationUID = event.detail?.annotationUID;
+    (event: CornerstoneAnnotationEvent) => {
+      const csAnnotationUID = event.detail?.annotation?.annotationUID;
       if (!csAnnotationUID) {
         setActiveAnnotation(null);
         return;

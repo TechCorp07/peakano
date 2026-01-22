@@ -5,7 +5,7 @@
  * View course curriculum and start lessons
  */
 
-import { use, useState } from 'react';
+import { use, useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -17,18 +17,24 @@ import {
   CheckCircle2,
   Lock,
   ChevronDown,
-  ChevronRight,
   FileText,
   HelpCircle,
   Pencil,
   Award,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import {
+  useGetCourseQuery,
+  useEnrollCourseMutation,
+} from '@/features/lms';
 import {
   mockCourses,
   mockModules,
-  type Course,
   type Module,
   type Lesson,
 } from '@/lib/mock/learningData';
@@ -41,8 +47,63 @@ export default function CourseDetailPage({ params }: CourseDetailPageProps) {
   const { courseId } = use(params);
   const [expandedModules, setExpandedModules] = useState<string[]>(['mod-1', 'mod-2', 'mod-3']);
 
-  const course = mockCourses.find(c => c.id === courseId);
-  const modules = mockModules.filter(m => m.courseId === courseId);
+  // Fetch course from API
+  const { 
+    data: courseData, 
+    isLoading, 
+    error,
+    refetch 
+  } = useGetCourseQuery(courseId);
+
+  const [enrollCourse, { isLoading: isEnrolling }] = useEnrollCourseMutation();
+
+  // Check if using mock data
+  const isUsingMockData = !!error;
+
+  // Use API data with fallback to mock data
+  const course = useMemo(() => {
+    if (courseData) {
+      return {
+        ...courseData,
+        // Map API response to expected format
+        ratingCount: courseData.reviewCount,
+        enrolledCount: courseData.enrollmentCount,
+        modules: courseData.modules?.length || 0,
+        instructorTitle: 'Senior Instructor',
+      };
+    }
+    // Fallback to mock data
+    return mockCourses.find(c => c.id === courseId);
+  }, [courseData, courseId]);
+
+  // Get modules - from API course.modules or fallback to mock
+  const modules = useMemo(() => {
+    if (courseData?.modules) {
+      // Map API modules to expected format with lessons
+      return courseData.modules.map((m: any) => ({
+        id: m.id,
+        courseId: courseId,
+        title: m.title,
+        description: m.description,
+        order: m.order,
+        duration: m.duration,
+        lessons: m.lessons || [],
+      }));
+    }
+    return mockModules.filter(m => m.courseId === courseId);
+  }, [courseData, courseId]);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0D1117] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 text-primary animate-spin" />
+          <p className="text-[#8B949E] text-lg">Loading course...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!course) {
     return (
@@ -57,6 +118,14 @@ export default function CourseDetailPage({ params }: CourseDetailPageProps) {
     );
   }
 
+  const handleEnroll = async () => {
+    try {
+      await enrollCourse(courseId).unwrap();
+    } catch (error) {
+      console.error('Failed to enroll:', error);
+    }
+  };
+
   const toggleModule = (moduleId: string) => {
     setExpandedModules(prev =>
       prev.includes(moduleId)
@@ -65,9 +134,9 @@ export default function CourseDetailPage({ params }: CourseDetailPageProps) {
     );
   };
 
-  const totalLessons = modules.reduce((acc, m) => acc + m.lessons.length, 0);
+  const totalLessons = modules.reduce((acc: number, m: any) => acc + (m.lessons?.length || 0), 0);
   const completedLessons = modules.reduce(
-    (acc, m) => acc + m.lessons.filter(l => l.isCompleted).length,
+    (acc: number, m: any) => acc + (m.lessons?.filter((l: any) => l.isCompleted).length || 0),
     0
   );
 
@@ -85,6 +154,27 @@ export default function CourseDetailPage({ params }: CourseDetailPageProps) {
           </Link>
         </div>
       </div>
+
+      {/* Demo Mode Notice */}
+      {isUsingMockData && (
+        <div className="max-w-6xl mx-auto px-6 pt-4">
+          <Alert className="border-amber-500/50 bg-amber-500/10">
+            <AlertCircle className="h-4 w-4 text-amber-500" />
+            <AlertDescription className="text-amber-200 flex items-center justify-between">
+              <span>Running in demo mode with sample data. Connect the backend for live data.</span>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => refetch()}
+                className="text-amber-500 hover:text-amber-400"
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       {/* Course Header */}
       <div className="bg-[#161B22] border-b border-[#30363D]">
@@ -178,8 +268,19 @@ export default function CourseDetailPage({ params }: CourseDetailPageProps) {
                     <p className="text-sm text-[#8B949E] mb-4">
                       Start learning today and master {course.title.toLowerCase()}.
                     </p>
-                    <Button className="w-full bg-primary hover:bg-primary/90 mb-3">
-                      Enroll Now - Free
+                    <Button 
+                      className="w-full bg-primary hover:bg-primary/90 mb-3"
+                      onClick={handleEnroll}
+                      disabled={isEnrolling}
+                    >
+                      {isEnrolling ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Enrolling...
+                        </>
+                      ) : (
+                        'Enroll Now - Free'
+                      )}
                     </Button>
                     <p className="text-xs text-center text-[#6E7681]">
                       Full lifetime access
@@ -199,7 +300,7 @@ export default function CourseDetailPage({ params }: CourseDetailPageProps) {
           <div className="lg:col-span-2">
             {/* What You'll Learn */}
             <div className="mb-8">
-              <h2 className="text-xl font-semibold text-[#E6EDF3] mb-4">What You'll Learn</h2>
+              <h2 className="text-xl font-semibold text-[#E6EDF3] mb-4">What You&apos;ll Learn</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {course.topics.map((topic, index) => (
                   <div
