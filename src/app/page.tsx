@@ -1,7 +1,5 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAppSelector } from '@/store/hooks';
@@ -13,15 +11,7 @@ import { siteConfig } from '@/config/site';
  * Landing page matching the existing MVP at training.peakpoint.africa
  */
 export default function HomePage() {
-  const router = useRouter();
   const { isAuthenticated } = useAppSelector((state) => state.auth);
-
-  // Demo mode: Auto-redirect to dashboard if authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.push(ROUTES.DASHBOARD);
-    }
-  }, [isAuthenticated, router]);
 
   const features = [
     {
@@ -87,30 +77,19 @@ export default function HomePage() {
             </div>
             <span className="text-2xl font-black text-white group-hover:text-[#00D95A] transition-colors tracking-tight">{siteConfig.name}</span>
           </Link>
-          <nav className="flex items-center gap-6">
-            {isAuthenticated ? (
-              <Link
-                href={ROUTES.DASHBOARD}
-                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#00D95A] to-[#00B84C] px-7 py-3 text-sm font-bold text-black shadow-[0_0_30px_rgba(0,217,90,0.4)] hover:shadow-[0_0_40px_rgba(0,217,90,0.6)] hover:scale-105 transition-all duration-300"
-              >
-                Go to Dashboard
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href={ROUTES.LOGIN}
-                  className="text-slate-300 hover:text-white transition-colors text-sm font-semibold px-4 py-2 rounded-lg hover:bg-white/5"
-                >
-                  Login
-                </Link>
-                <Link
-                  href={ROUTES.REGISTER}
-                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#00D95A] to-[#00B84C] px-7 py-3 text-sm font-bold text-black shadow-[0_0_30px_rgba(0,217,90,0.4)] hover:shadow-[0_0_40px_rgba(0,217,90,0.6)] hover:scale-105 transition-all duration-300"
-                >
-                  Get Started
-                </Link>
-              </>
-            )}
+          <nav className="flex items-center gap-4">
+            <Link
+              href={ROUTES.DASHBOARD}
+              className="inline-flex items-center justify-center rounded-full border-2 border-[#00D95A] px-6 py-2.5 text-sm font-bold text-[#00D95A] hover:bg-[#00D95A]/10 transition-all duration-300"
+            >
+              Try Demo
+            </Link>
+            <Link
+              href={ROUTES.DASHBOARD}
+              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#00D95A] to-[#00B84C] px-7 py-3 text-sm font-bold text-black shadow-[0_0_30px_rgba(0,217,90,0.4)] hover:shadow-[0_0_40px_rgba(0,217,90,0.6)] hover:scale-105 transition-all duration-300"
+            >
+              Get Started
+            </Link>
           </nav>
         </div>
       </header>
@@ -161,29 +140,18 @@ export default function HomePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-5 justify-center mb-12">
-            {isAuthenticated ? (
-              <Link
-                href={ROUTES.DASHBOARD}
-                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#00D95A] to-[#00B84C] px-10 py-4 text-lg font-bold text-black shadow-[0_0_40px_rgba(0,217,90,0.5)] hover:shadow-[0_0_60px_rgba(0,217,90,0.7)] hover:scale-105 transition-all duration-300"
-              >
-                Continue Learning →
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href={ROUTES.REGISTER}
-                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#00D95A] to-[#00B84C] px-10 py-4 text-lg font-bold text-black shadow-[0_0_40px_rgba(0,217,90,0.5)] hover:shadow-[0_0_60px_rgba(0,217,90,0.7)] hover:scale-105 transition-all duration-300"
-                >
-                  Start Learning Free →
-                </Link>
-                <Link
-                  href={ROUTES.LOGIN}
-                  className="inline-flex items-center justify-center rounded-full border-2 border-white/20 bg-white/5 backdrop-blur-sm px-10 py-4 text-lg font-semibold text-white hover:bg-white/10 hover:border-white/30 transition-all duration-300"
-                >
-                  Sign In
-                </Link>
-              </>
-            )}
+            <Link
+              href={ROUTES.DASHBOARD}
+              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#00D95A] to-[#00B84C] px-10 py-4 text-lg font-bold text-black shadow-[0_0_40px_rgba(0,217,90,0.5)] hover:shadow-[0_0_60px_rgba(0,217,90,0.7)] hover:scale-105 transition-all duration-300"
+            >
+              Start Learning Free →
+            </Link>
+            <Link
+              href={ROUTES.DASHBOARD}
+              className="inline-flex items-center justify-center rounded-full border-2 border-white/20 bg-white/5 backdrop-blur-sm px-10 py-4 text-lg font-semibold text-white hover:bg-white/10 hover:border-white/30 transition-all duration-300"
+            >
+              Try Demo
+            </Link>
           </div>
 
           {/* Floating UI Preview - Professional DICOM Viewer */}
@@ -464,10 +432,10 @@ export default function HomePage() {
             Join Africa&apos;s leading medical imaging training program and become a certified MRI data annotation technician
           </p>
           <Link
-            href={ROUTES.REGISTER}
+            href={ROUTES.DASHBOARD}
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#00D95A] to-[#00B84C] px-12 py-5 text-lg font-bold text-black shadow-[0_0_50px_rgba(0,217,90,0.5)] hover:shadow-[0_0_70px_rgba(0,217,90,0.7)] hover:scale-105 transition-all duration-300"
           >
-            Create Free Account →
+            Get Started →
           </Link>
         </div>
       </section>
