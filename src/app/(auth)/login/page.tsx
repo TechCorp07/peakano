@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -10,6 +11,7 @@ import { Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 import { useAuth } from '@/features/auth/hooks';
+import { useAppSelector } from '@/store/hooks';
 import { useLazyInitiateGoogleOAuthQuery } from '@/features/auth/authApi';
 import { loginSchema, type LoginFormData } from '@/features/auth/schemas';
 import { ROUTES } from '@/config/routes';
@@ -64,10 +66,19 @@ function FeatureBadge({ text }: { text: string }) {
  * Matches MVP design at training.peakpoint.africa/login
  */
 export default function LoginPage() {
+  const router = useRouter();
+  const { isAuthenticated } = useAppSelector((state) => state.auth);
   const { login, isLoading } = useAuth();
   const [initiateGoogleOAuth, { isLoading: isGoogleLoading }] = useLazyInitiateGoogleOAuthQuery();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Demo mode: Auto-redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push(ROUTES.DASHBOARD);
+    }
+  }, [isAuthenticated, router]);
 
   /**
    * Handle Google OAuth login

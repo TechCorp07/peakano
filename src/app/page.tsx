@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAppSelector } from '@/store/hooks';
@@ -11,7 +13,15 @@ import { siteConfig } from '@/config/site';
  * Landing page matching the existing MVP at training.peakpoint.africa
  */
 export default function HomePage() {
+  const router = useRouter();
   const { isAuthenticated } = useAppSelector((state) => state.auth);
+
+  // Demo mode: Auto-redirect to dashboard if authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push(ROUTES.DASHBOARD);
+    }
+  }, [isAuthenticated, router]);
 
   const features = [
     {
