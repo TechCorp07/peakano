@@ -20,14 +20,15 @@ export default function DashboardLayout({
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAppSelector((state) => state.auth);
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push(ROUTES.LOGIN);
-    }
-  }, [isAuthenticated, isLoading, router]);
+  // Demo mode: Skip auth redirect for testing
+  // Uncomment below when backend auth is ready
+  // useEffect(() => {
+  //   if (!isLoading && !isAuthenticated) {
+  //     router.push(ROUTES.LOGIN);
+  //   }
+  // }, [isAuthenticated, isLoading, router]);
 
-  // Show loading state while checking auth
+  // Show loading state while checking auth (brief for demo mode)
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0D1117]" data-theme="app">
@@ -37,11 +38,6 @@ export default function DashboardLayout({
         </div>
       </div>
     );
-  }
-
-  // Don't render children if not authenticated
-  if (!isAuthenticated) {
-    return null;
   }
 
   return <AppLayout>{children}</AppLayout>;

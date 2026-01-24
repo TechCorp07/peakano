@@ -3,10 +3,10 @@ import type { AuthState, User, Permission } from '@/types/auth';
 import { mockUser, mockTokens } from '@/lib/mock/authData';
 
 /**
- * Check if we should use mock auth data
- * In development without backend, this provides a logged-in state
+ * Use mock auth data for demo/testing deployment
+ * Set to false when backend authentication is ready
  */
-const useMockAuth = process.env.NODE_ENV === 'development';
+const useMockAuth = true;
 
 /**
  * Initial authentication state

@@ -46,11 +46,10 @@ function isPathMatch(pathname: string, paths: string[]): boolean {
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 /**
- * Check if auth bypass is enabled (for testing without backend)
- * Set NEXT_PUBLIC_BYPASS_AUTH=true in your .env file to bypass auth
- * Default to true for demo/testing deployments
+ * Auth bypass enabled for demo/testing deployment
+ * Set to false when backend authentication is ready
  */
-const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH !== 'false';
+const bypassAuth = true;
 
 /**
  * Middleware for route protection
