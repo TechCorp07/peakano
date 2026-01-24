@@ -56,13 +56,6 @@ const nextConfig: NextConfig = {
   },
 
   /**
-   * ESLint settings - ignore during builds for deployment
-   */
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-
-  /**
    * Experimental settings
    */
   experimental: {
