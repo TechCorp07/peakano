@@ -2134,7 +2134,10 @@ const AnnotationCanvas = forwardRef<AnnotationCanvasRef, AnnotationCanvasProps>(
       <div
         ref={containerRef}
         className={cn('absolute inset-0', className)}
-        style={{ pointerEvents: disabled ? 'none' : 'auto', touchAction: 'none' }}
+        style={{ 
+          pointerEvents: disabled || activeTool === 'none' ? 'none' : 'auto', 
+          touchAction: 'none' 
+        }}
       >
         {/* Static canvas: finalized annotations */}
         <canvas

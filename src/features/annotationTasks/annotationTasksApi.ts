@@ -18,6 +18,7 @@ export interface AnnotationChecklist {
 export interface AnnotationTask {
   id: string;
   caseId: string;
+  studyInstanceUID?: string;
   title: string;
   type: string;
   modality: string;

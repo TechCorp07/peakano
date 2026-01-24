@@ -274,12 +274,31 @@ export default function ViewerToolbar({
 
   // Adjust tool handlers
   const handleAdjustTool = (tool: ToolType) => {
-    if (activeTool === tool) {
-      onToolChange('WindowLevel');
+    if (activeTool === tool && activeCanvasTool === 'none' && activeSmartTool === 'none') {
+      // Already active with no overlapping tools, do nothing
       return;
     }
     deactivateAllTools();
     onToolChange(tool);
+    
+    // Ensure Cornerstone tool is activated as primary
+    (async () => {
+      try {
+        const csTools = await import('@cornerstonejs/tools');
+        const toolGroup = csTools.ToolGroupManager.getToolGroup('mriToolGroup');
+        if (toolGroup) {
+          // Deactivate any active primary tool first
+          const currentPrimaryTool = toolGroup.getActivePrimaryMouseButtonTool();
+          if (currentPrimaryTool && currentPrimaryTool !== tool) {
+            toolGroup.setToolPassive(currentPrimaryTool);
+          }
+          // Activate the tool with primary mouse button
+          toolGroup.setToolActive(tool, {
+            bindings: [{ mouseButton: csTools.Enums.MouseBindings.Primary }],
+          });
+        }
+      } catch (e) { /* ignore */ }
+    })();
   };
 
   // Mask mode handler - sets selection combination mode

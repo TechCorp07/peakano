@@ -5,7 +5,8 @@
  * Track progress and take skill assessments
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   BarChart3,
   Trophy,
@@ -40,6 +41,7 @@ import {
 type AssessmentFilter = 'all' | 'quick-practice' | 'skill-test' | 'certification';
 
 export default function AssessmentsPage() {
+  const router = useRouter();
   const [filter, setFilter] = useState<AssessmentFilter>('all');
 
   // Fetch data from backend
@@ -47,6 +49,12 @@ export default function AssessmentsPage() {
     type: filter !== 'all' ? filter : undefined,
   });
   const { data: statsData, isLoading: statsLoading } = useGetAssessmentStatsQuery();
+
+  // Handle starting an assessment
+  const handleStartAssessment = useCallback((assessmentId: string) => {
+    // Navigate to the assessment taking page (or studies page for practice)
+    router.push(`/studies`);
+  }, [router]);
 
   // Determine if using mock data
   const isUsingMockData = !!assessmentsError;
@@ -252,7 +260,11 @@ export default function AssessmentsPage() {
                         Your score: <span className="text-amber-400 font-semibold">{weakestSkill.score}%</span> &bull; Target: <span className="text-emerald-400 font-semibold">85%</span>
                       </p>
                     </div>
-                    <Button size="default" className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold px-6">
+                    <Button 
+                      size="default" 
+                      onClick={() => handleStartAssessment(recommendedAssessment.id)}
+                      className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-black font-bold px-6"
+                    >
                       Start Practice
                     </Button>
                   </div>
@@ -295,6 +307,7 @@ export default function AssessmentsPage() {
           icon={<Zap className="h-5 w-5 text-yellow-500" />}
           assessments={filter === 'all' ? quickPractice : filteredAssessments.filter(a => a.type === 'quick-practice')}
           variant="grid"
+          onStart={handleStartAssessment}
         />
       )}
 
@@ -305,6 +318,7 @@ export default function AssessmentsPage() {
           icon={<ClipboardCheck className="h-5 w-5 text-primary" />}
           assessments={filter === 'all' ? skillTests : filteredAssessments.filter(a => a.type === 'skill-test')}
           variant="list"
+          onStart={handleStartAssessment}
         />
       )}
 
@@ -315,6 +329,7 @@ export default function AssessmentsPage() {
           icon={<Medal className="h-5 w-5 text-amber-500" />}
           assessments={filter === 'all' ? certifications : filteredAssessments.filter(a => a.type === 'certification')}
           variant="featured"
+          onStart={handleStartAssessment}
         />
       )}
     </div>
@@ -327,12 +342,14 @@ function AssessmentSection({
   icon,
   assessments,
   variant,
+  onStart,
 }: {
   title: string;
   subtitle: string;
   icon: React.ReactNode;
   assessments: Assessment[];
   variant: 'grid' | 'list' | 'featured';
+  onStart: (id: string) => void;
 }) {
   return (
     <div className="mb-10">
@@ -355,7 +372,7 @@ function AssessmentSection({
       {variant === 'grid' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {assessments.map((assessment) => (
-            <QuickPracticeCard key={assessment.id} assessment={assessment} />
+            <QuickPracticeCard key={assessment.id} assessment={assessment} onStart={onStart} />
           ))}
         </div>
       )}
@@ -363,7 +380,7 @@ function AssessmentSection({
       {variant === 'list' && (
         <div className="space-y-4">
           {assessments.map((assessment) => (
-            <SkillTestCard key={assessment.id} assessment={assessment} />
+            <SkillTestCard key={assessment.id} assessment={assessment} onStart={onStart} />
           ))}
         </div>
       )}
@@ -371,7 +388,7 @@ function AssessmentSection({
       {variant === 'featured' && (
         <div className="space-y-5">
           {assessments.map((assessment) => (
-            <CertificationCard key={assessment.id} assessment={assessment} />
+            <CertificationCard key={assessment.id} assessment={assessment} onStart={onStart} />
           ))}
         </div>
       )}
@@ -379,7 +396,7 @@ function AssessmentSection({
   );
 }
 
-function QuickPracticeCard({ assessment }: { assessment: Assessment }) {
+function QuickPracticeCard({ assessment, onStart }: { assessment: Assessment; onStart: (id: string) => void }) {
   return (
     <div className="bg-gradient-to-br from-[#161B22] to-[#1a1f29] rounded-2xl border-2 border-yellow-500/30 p-6 hover:border-yellow-400/50 hover:shadow-xl hover:shadow-yellow-500/10 transition-all">
       {/* Accent bar */}
@@ -407,7 +424,10 @@ function QuickPracticeCard({ assessment }: { assessment: Assessment }) {
         </div>
       )}
 
-      <Button className="w-full h-11 bg-gradient-to-r from-yellow-500/20 to-amber-500/10 hover:from-yellow-500/30 hover:to-amber-500/20 text-yellow-400 border border-yellow-500/30 text-base font-semibold">
+      <Button 
+        onClick={() => onStart(assessment.id)}
+        className="w-full h-11 bg-gradient-to-r from-yellow-500/20 to-amber-500/10 hover:from-yellow-500/30 hover:to-amber-500/20 text-yellow-400 border border-yellow-500/30 text-base font-semibold"
+      >
         <Play className="h-5 w-5 mr-2" />
         Start
       </Button>
@@ -415,7 +435,7 @@ function QuickPracticeCard({ assessment }: { assessment: Assessment }) {
   );
 }
 
-function SkillTestCard({ assessment }: { assessment: Assessment }) {
+function SkillTestCard({ assessment, onStart }: { assessment: Assessment; onStart: (id: string) => void }) {
   const hasPassed = assessment.bestScore && assessment.passingScore && assessment.bestScore >= assessment.passingScore;
   const hasDicePassed = assessment.bestDice && assessment.passingDice && assessment.bestDice >= assessment.passingDice;
 
@@ -481,11 +501,20 @@ function SkillTestCard({ assessment }: { assessment: Assessment }) {
 
         <div className="flex items-center gap-3 ml-6">
           {assessment.attempts > 0 && (
-            <Button variant="outline" size="default" className="border-slate-500/30 text-slate-300 hover:text-slate-200 hover:bg-slate-500/10">
+            <Button 
+              variant="outline" 
+              size="default" 
+              onClick={() => onStart(assessment.id)}
+              className="border-slate-500/30 text-slate-300 hover:text-slate-200 hover:bg-slate-500/10"
+            >
               View Results
             </Button>
           )}
-          <Button size="default" className="bg-teal-600 hover:bg-teal-500 text-white font-semibold">
+          <Button 
+            size="default" 
+            onClick={() => onStart(assessment.id)}
+            className="bg-teal-600 hover:bg-teal-500 text-white font-semibold"
+          >
             {assessment.attempts > 0 ? 'Retake' : 'Start'}
           </Button>
         </div>
@@ -494,7 +523,7 @@ function SkillTestCard({ assessment }: { assessment: Assessment }) {
   );
 }
 
-function CertificationCard({ assessment }: { assessment: Assessment }) {
+function CertificationCard({ assessment, onStart }: { assessment: Assessment; onStart: (id: string) => void }) {
   return (
     <div className="bg-gradient-to-br from-[#161B22] to-[#1a1f29] rounded-2xl border-2 border-amber-500/30 p-7 hover:border-amber-400/50 hover:shadow-xl hover:shadow-amber-500/10 transition-all">
       <div className="flex items-start gap-5">
@@ -534,6 +563,7 @@ function CertificationCard({ assessment }: { assessment: Assessment }) {
             </div>
             <Button
               size="lg"
+              onClick={() => assessment.prerequisitesMet && onStart(assessment.id)}
               className={cn(
                 "font-bold px-6",
                 assessment.prerequisitesMet

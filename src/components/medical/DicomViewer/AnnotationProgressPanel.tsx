@@ -188,20 +188,18 @@ function StatCard({
   color?: string;
 }) {
   return (
-    <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
+    <div className="flex flex-col items-center p-3 bg-gray-800/50 rounded-lg text-center">
+      <p className="text-xs text-[#8B949E] mb-1">{label}</p>
       <div 
-        className="p-2 rounded-lg"
+        className="p-2 rounded-lg mb-1"
         style={{ backgroundColor: `${color}20` }}
       >
         <Icon className="w-4 h-4" style={{ color }} />
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs text-gray-400 truncate">{label}</p>
-        <p className="text-sm font-semibold text-white">{value}</p>
-        {subValue && (
-          <p className="text-xs text-gray-500">{subValue}</p>
-        )}
-      </div>
+      <p className="text-lg font-semibold text-white">{value}</p>
+      {subValue && (
+        <p className="text-xs text-[#8B949E]">{subValue}</p>
+      )}
     </div>
   );
 }
@@ -228,7 +226,7 @@ function CurrentSliceStats({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-gray-300 flex items-center gap-2">
+        <h4 className="text-sm font-medium text-[#E6EDF3] flex items-center gap-2">
           <Layers className="w-4 h-4" />
           Slice {sliceIndex}
         </h4>
@@ -258,19 +256,19 @@ function CurrentSliceStats({
       {stats ? (
         <div className="grid grid-cols-2 gap-2">
           <div className="p-2 bg-gray-800/30 rounded">
-            <p className="text-xs text-gray-500">Annotations</p>
+            <p className="text-xs text-[#8B949E]">Annotations</p>
             <p className="text-sm font-medium text-white">{stats.annotationCount}</p>
           </div>
           <div className="p-2 bg-gray-800/30 rounded">
-            <p className="text-xs text-gray-500">Coverage</p>
+            <p className="text-xs text-[#8B949E]">Coverage</p>
             <p className="text-sm font-medium text-white">{stats.coverage.toFixed(1)}%</p>
           </div>
           <div className="p-2 bg-gray-800/30 rounded">
-            <p className="text-xs text-gray-500">Total Area</p>
+            <p className="text-xs text-[#8B949E]">Total Area</p>
             <p className="text-sm font-medium text-white">{Math.round(stats.totalArea)} px²</p>
           </div>
           <div className="p-2 bg-gray-800/30 rounded">
-            <p className="text-xs text-gray-500">Perimeter</p>
+            <p className="text-xs text-[#8B949E]">Perimeter</p>
             <p className="text-sm font-medium text-white">{Math.round(stats.totalPerimeter)} px</p>
           </div>
         </div>
@@ -324,7 +322,7 @@ export function AnnotationProgressPanel({
           <BarChart3 className="w-4 h-4 text-blue-400" />
           Progress Tracking
         </h3>
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-[#8B949E]">
           {progressSummary.annotatedSlices} / {progressSummary.totalSlices} slices
         </span>
       </div>
@@ -332,7 +330,7 @@ export function AnnotationProgressPanel({
       {/* Overall Progress */}
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-gray-400">Annotation Progress</span>
+          <span className="text-[#E6EDF3]">Annotation Progress</span>
           <span className="text-blue-400 font-medium">
             {formatProgress(progressSummary.progressPercent)}
           </span>
@@ -345,7 +343,7 @@ export function AnnotationProgressPanel({
 
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-gray-400">Completion Progress</span>
+          <span className="text-[#E6EDF3]">Completion Progress</span>
           <span className="text-green-400 font-medium">
             {formatProgress(progressSummary.completionPercent)}
           </span>
@@ -358,7 +356,7 @@ export function AnnotationProgressPanel({
 
       {/* Slice Indicators */}
       <div className="pt-2 border-t border-gray-700/50">
-        <h4 className="text-xs font-medium text-gray-400 mb-2">Slice Overview</h4>
+        <h4 className="text-xs font-medium text-[#E6EDF3] mb-2">Slice Overview</h4>
         <SliceIndicatorStrip
           indicators={sliceIndicators}
           currentSlice={currentSlice}

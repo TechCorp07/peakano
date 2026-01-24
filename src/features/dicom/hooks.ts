@@ -747,7 +747,7 @@ export function useStudyList(initialFilters?: StudyFilters) {
     limit: pageSize,
   };
 
-  const { data, isLoading, error, refetch } = useGetStudiesQuery(queryFilters);
+  const { data, isLoading, isFetching, error, refetch } = useGetStudiesQuery(queryFilters);
 
   const setFilter = useCallback(
     (key: keyof StudyFilters, value: StudyFilters[keyof StudyFilters]) => {
@@ -774,6 +774,7 @@ export function useStudyList(initialFilters?: StudyFilters) {
     currentPage,
     pageSize,
     isLoading,
+    isFetching,
     error,
     filters,
     setFilter,

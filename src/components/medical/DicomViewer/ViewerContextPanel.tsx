@@ -815,7 +815,7 @@ export default function ViewerContextPanel({
         {/* Advanced Tab - Phase 1-6 Tools */}
         {activeTab === 'advanced' && (
           <div className="space-y-4">
-            {/* Progress Panel (Phase 3/6) */}
+            {/* Progress Panel (Phase 3/6) - Shows progress tracking */}
             <div className="border border-[#30363D] rounded-lg overflow-hidden">
               <AnnotationProgressPanel
                 totalSlices={totalSlices || 1}
@@ -824,37 +824,7 @@ export default function ViewerContextPanel({
               />
             </div>
 
-            {/* 3D Visualization Panel (Phase 6) */}
-            <div className="border border-[#30363D] rounded-lg overflow-hidden">
-              <Visualization3DPanel
-                studyUid={studyInstanceUID}
-                seriesUid={seriesInstanceUID}
-                dimensions={[512, 512, totalSlices || 1]}
-                spacing={[1, 1, 1]}
-                className="bg-transparent"
-              />
-            </div>
-
-            {/* Smart Tools Panel (Phase 5) */}
-            <div className="border border-[#30363D] rounded-lg overflow-hidden">
-              <SmartToolsPanel />
-            </div>
-
-            {/* Annotation Persistence Panel (Phase 2) */}
-            <div className="border border-[#30363D] rounded-lg overflow-hidden">
-              <AnnotationPersistencePanel 
-                studyUid={studyInstanceUID || ''}
-                seriesUid={seriesInstanceUID || ''}
-                totalSlices={totalSlices}
-              />
-            </div>
-
-            {/* Threshold Tool Panel */}
-            <div className="border border-[#30363D] rounded-lg overflow-hidden">
-              <ThresholdToolPanel />
-            </div>
-
-            {/* Brush Settings Panel */}
+            {/* Brush Settings Panel - Only show when brush/eraser active */}
             <div className="border border-[#30363D] rounded-lg overflow-hidden">
               <BrushSettingsPanel />
             </div>
@@ -871,9 +841,13 @@ export default function ViewerContextPanel({
               />
             </div>
 
-            {/* Measurements Panel */}
+            {/* Annotation Persistence Panel (Phase 2) - Save/Export */}
             <div className="border border-[#30363D] rounded-lg overflow-hidden">
-              <MeasurementsPanel measurements={[]} />
+              <AnnotationPersistencePanel 
+                studyUid={studyInstanceUID || ''}
+                seriesUid={seriesInstanceUID || ''}
+                totalSlices={totalSlices}
+              />
             </div>
           </div>
         )}

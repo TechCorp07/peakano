@@ -42,6 +42,7 @@ export function useFrameAwareImageIds(
   // Track previous URLs to avoid unnecessary re-fetches
   const prevUrlsRef = useRef<string>('');
   const loadingRef = useRef(false);
+  const hasLoadedRef = useRef(false);
 
   const loadImageIds = useCallback(async () => {
     console.log('[useFrameAwareImageIds] loadImageIds called, enabled:', enabled, 'fileUrls:', fileUrls);
@@ -51,11 +52,12 @@ export function useFrameAwareImageIds(
       setImageIds([]);
       setTotalFrames(0);
       setFrameInfo(null);
+      hasLoadedRef.current = false;
       return;
     }
 
     const urlsKey = JSON.stringify(fileUrls);
-    if (urlsKey === prevUrlsRef.current && imageIds.length > 0) {
+    if (urlsKey === prevUrlsRef.current && hasLoadedRef.current) {
       console.log('[useFrameAwareImageIds] Skipping - already loaded these URLs');
       return; // Already loaded these URLs
     }
@@ -94,6 +96,7 @@ export function useFrameAwareImageIds(
       setImageIds(allImageIds);
       setTotalFrames(allImageIds.length);
       setFrameInfo(primaryFrameInfo);
+      hasLoadedRef.current = true;
     } catch (err) {
       console.error('[useFrameAwareImageIds] Error loading imageIds:', err);
       setError(err instanceof Error ? err : new Error('Failed to load DICOM frames'));
@@ -103,11 +106,12 @@ export function useFrameAwareImageIds(
       console.log('[useFrameAwareImageIds] Using fallback, generated', fallbackIds.length, 'imageIds');
       setImageIds(fallbackIds);
       setTotalFrames(fallbackIds.length);
+      hasLoadedRef.current = true;
     } finally {
       setIsLoading(false);
       loadingRef.current = false;
     }
-  }, [fileUrls, enabled, imageIds.length]);
+  }, [fileUrls, enabled]);
 
   useEffect(() => {
     loadImageIds();

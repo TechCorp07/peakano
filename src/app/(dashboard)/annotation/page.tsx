@@ -235,7 +235,7 @@ export default function AnnotationPage() {
                   </div>
                 </div>
               </div>
-              <Link href={`/viewer/${continueTask.caseId}`}>
+              <Link href={`/viewer/${continueTask.studyInstanceUID || continueTask.caseId}`}>
                 <Button className="bg-primary hover:bg-primary/90">
                   Resume Annotation
                   <ChevronRight className="h-4 w-4 ml-1" />
@@ -426,7 +426,7 @@ function TaskCard({
             )}
           </div>
         </div>
-        <Link href={`/viewer/${task.caseId}`}>
+        <Link href={`/viewer/${task.studyInstanceUID || task.caseId}`}>
           <Button className={cn(
             variant === 'urgent'
               ? "bg-red-500 hover:bg-red-600"
@@ -466,7 +466,7 @@ function TaskRow({ task }: { task: AnnotationTask }) {
             Due: {formatDeadline(task.deadline)}
           </p>
         </div>
-        <Link href={`/viewer/${task.caseId}`}>
+        <Link href={`/viewer/${task.studyInstanceUID || task.caseId}`}>
           <Button size="sm" variant="outline" className="border-[#30363D] text-[#8B949E] hover:text-white">
             {task.status === 'pending' ? 'Start' :
              task.status === 'in-progress' ? 'Continue' :

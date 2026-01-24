@@ -51,6 +51,7 @@ export default function StudiesPage() {
     totalPages: apiTotalPages,
     currentPage,
     isLoading,
+    isFetching,
     error,
     setFilter,
     resetFilters,
@@ -147,12 +148,17 @@ export default function StudiesPage() {
           </div>
           <Button
             onClick={() => refetch()}
+            disabled={isFetching}
             variant="outline"
             size="default"
-            className="border-blue-500/30 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 hover:border-blue-400/50 transition-all"
+            className="border-blue-500/30 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 hover:border-blue-400/50 transition-all disabled:opacity-50"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+            {isFetching ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            {isFetching ? 'Refreshing...' : 'Refresh'}
           </Button>
         </div>
       </div>

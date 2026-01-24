@@ -430,6 +430,7 @@ export const mockAssessments: Assessment[] = [
 export interface AnnotationTask {
   id: string;
   caseId: string;
+  studyInstanceUID?: string;
   title: string;
   type: string;
   modality: string;
@@ -472,6 +473,7 @@ export const mockAnnotationTasks: AnnotationTask[] = [
   {
     id: 'task-1',
     caseId: 'PEL-2026-00123',
+    studyInstanceUID: 'static-patient-1-series-0002',
     title: 'Pelvic MRI - Cervical Tumor Segmentation',
     type: 'Cervical Tumor Segmentation',
     modality: 'MR',
@@ -492,6 +494,7 @@ export const mockAnnotationTasks: AnnotationTask[] = [
   {
     id: 'task-2',
     caseId: 'PEL-2026-00089',
+    studyInstanceUID: 'static-patient-2-series-0004',
     title: 'Pelvic MRI - Uterine Fibroid Mapping',
     type: 'Fibroid Mapping',
     modality: 'MR',
@@ -511,6 +514,7 @@ export const mockAnnotationTasks: AnnotationTask[] = [
   {
     id: 'task-3',
     caseId: 'PEL-2026-00156',
+    studyInstanceUID: 'static-patient-3-series-0004',
     title: 'Pelvic MRI - Ovarian Mass Characterization',
     type: 'Ovarian Assessment',
     modality: 'MR',
@@ -523,6 +527,7 @@ export const mockAnnotationTasks: AnnotationTask[] = [
   {
     id: 'task-4',
     caseId: 'PEL-2026-00157',
+    studyInstanceUID: 'static-patient-1-series-0002',
     title: 'Pelvic MRI - Endometriosis Mapping',
     type: 'Endometriosis Assessment',
     modality: 'MR',
@@ -535,6 +540,7 @@ export const mockAnnotationTasks: AnnotationTask[] = [
   {
     id: 'task-5',
     caseId: 'PEL-2026-00158',
+    studyInstanceUID: 'static-patient-2-series-0004',
     title: 'Pelvic MRI - Cervical Cancer Staging',
     type: 'FIGO Staging',
     modality: 'MR',
@@ -547,6 +553,7 @@ export const mockAnnotationTasks: AnnotationTask[] = [
   {
     id: 'task-6',
     caseId: 'PEL-2026-00098',
+    studyInstanceUID: 'static-patient-3-series-0004',
     title: 'Pelvic MRI - Cervical Tumor Follow-up',
     type: 'Tumor Segmentation',
     modality: 'MR',
@@ -560,6 +567,7 @@ export const mockAnnotationTasks: AnnotationTask[] = [
   {
     id: 'task-7',
     caseId: 'PEL-2026-00045',
+    studyInstanceUID: 'static-patient-1-series-0002',
     title: 'Pelvic MRI - Adenomyosis Detection',
     type: 'Adenomyosis Assessment',
     modality: 'MR',
