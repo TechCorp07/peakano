@@ -716,7 +716,7 @@ export default function ViewerContextPanel({
   return (
     <aside
       className={cn(
-        'w-[280px] bg-[#161B22] border-l border-[#30363D] flex flex-col overflow-hidden',
+        'w-[220px] bg-[#161B22] border-l border-[#30363D] flex flex-col overflow-hidden',
         className
       )}
     >

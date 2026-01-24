@@ -86,7 +86,7 @@ export default function AppSidebar({ collapsed = false, onToggle }: AppSidebarPr
     <aside
       className={cn(
         'h-full bg-[#161B22] border-r border-[#30363D] flex flex-col transition-all duration-200',
-        collapsed ? 'w-16' : 'w-60'
+        collapsed ? 'w-14' : 'w-48'
       )}
     >
       {/* Sidebar Content */}

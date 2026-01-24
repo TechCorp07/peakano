@@ -111,7 +111,7 @@ export default function ViewerLeftSidebar({
   return (
     <aside
       className={cn(
-        'w-60 bg-[#161B22] border-r border-[#30363D] flex flex-col overflow-hidden',
+        'w-52 bg-[#161B22] border-r border-[#30363D] flex flex-col overflow-hidden',
         className
       )}
     >
