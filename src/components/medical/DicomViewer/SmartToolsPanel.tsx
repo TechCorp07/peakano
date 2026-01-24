@@ -74,7 +74,7 @@ export default function SmartToolsPanel({
   return (
     <div
       className={cn(
-        'absolute top-16 right-4 w-80 bg-[#1C2128] border border-[#30363D] rounded-lg shadow-xl z-50',
+        'absolute top-16 right-4 w-64 bg-[#1C2128] border border-[#30363D] rounded-lg shadow-xl z-50',
         className
       )}
     >
