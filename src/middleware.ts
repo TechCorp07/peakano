@@ -48,8 +48,9 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 /**
  * Check if auth bypass is enabled (for testing without backend)
  * Set NEXT_PUBLIC_BYPASS_AUTH=true in your .env file to bypass auth
+ * Default to true for demo/testing deployments
  */
-const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
+const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH !== 'false';
 
 /**
  * Middleware for route protection
